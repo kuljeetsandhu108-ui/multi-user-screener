@@ -1,9 +1,12 @@
 // ===================================================================
-// FINAL FORMAT FIX for /api/stock-data.js
-// This version uses the correct body format for the API request.
+// FINAL PRODUCTION CODE with DYNAMIC SYMBOL TOKEN LOOKUP
 // ===================================================================
 const { SmartAPI } = require("smartapi-javascript");
 const { TOTP } = require("totp-generator");
+const fetch = require('node-fetch'); // We need to explicitly import fetch
+
+// In-memory cache to store symbol tokens for speed
+const tokenCache = new Map();
 
 export default async function handler(request, response) {
     const { ticker } = request.query;
@@ -11,11 +14,11 @@ export default async function handler(request, response) {
         return response.status(400).json({ error: 'Ticker symbol is required' });
     }
 
-    const smart_api = new SmartAPI({
-        api_key: process.env.ANGEL_API_KEY,
-    });
-    
     try {
+        const smart_api = new SmartAPI({
+            api_key: process.env.ANGEL_API_KEY,
+        });
+        
         const totp = TOTP.generate(process.env.ANGEL_TOTP_SECRET).otp;
 
         const session = await smart_api.generateSession(
@@ -29,10 +32,31 @@ export default async function handler(request, response) {
         const tradingSymbol = symbolParts[0];
         const exchange = symbolParts[1];
         
+        let symbolToken;
+
+        // Step 1: DYNAMIC SYMBOL TOKEN LOOKUP
+        // Check our cache first to avoid slow lookups
+        if (tokenCache.has(ticker)) {
+            symbolToken = tokenCache.get(ticker);
+        } else {
+            // If not in cache, fetch the master list of all instruments
+            const instrumentListUrl = 'https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json';
+            const instrumentResponse = await fetch(instrumentListUrl);
+            const instruments = await instrumentResponse.json();
+            
+            // Find the correct instrument from the list
+            const instrument = instruments.find(inst => inst.symbol === tradingSymbol && inst.exch_seg === exchange);
+
+            if (!instrument) {
+                throw new Error(`Symbol token not found for ${ticker}`);
+            }
+            symbolToken = instrument.token;
+            tokenCache.set(ticker, symbolToken); // Save it to the cache for next time
+        }
+
+        // Step 2: Fetch the full quote using the correct Symbol Token
         const quoteAPIEndpoint = 'https://apiconnect.angelbroking.com/rest/secure/angelbroking/market/v1/quote/';
         
-        // THE FINAL FORMAT FIX IS HERE:
-        // The API expects a different structure inside the body.
         const apiResponse = await fetch(quoteAPIEndpoint, {
             method: 'POST',
             headers: {
@@ -47,9 +71,9 @@ export default async function handler(request, response) {
                 'X-PrivateKey': process.env.ANGEL_API_KEY
             },
             body: JSON.stringify({
-                "mode": "FULL", // Changed from "exchange"
+                "mode": "FULL",
                 "exchangeTokens": {
-                    [exchange]: [tradingSymbol] // Changed structure
+                    [exchange]: [symbolToken] // Use the dynamic token here
                 }
             })
         });
@@ -60,7 +84,6 @@ export default async function handler(request, response) {
              throw new Error(quoteData.message || "Invalid data returned from API.");
         }
 
-        // The data is nested inside the 'fetched' array
         const stockInfo = quoteData.data.fetched[0];
 
         const formattedData = {
@@ -84,3 +107,12 @@ export default async function handler(request, response) {
         return response.status(500).json({ error: 'Failed to fetch data from Angel One API.', details: error.message });
     }
 }
+```5.  **Save the file**.
+
+#### **Step 2: Install One Final Helper Library**
+
+Our new robust code needs one more small library to make direct web requests reliably.
+In your terminal, run this one command:
+
+```bash
+npm install node-fetch
