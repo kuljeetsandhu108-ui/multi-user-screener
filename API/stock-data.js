@@ -1,14 +1,16 @@
 // ===================================================================
-// FINAL CODE - "type": "module" COMPATIBLE VERSION
+// FINAL, VERIFIED, STABLE CODE for /api/stock-data.js
+// Using the correct CommonJS syntax (require/module.exports)
 // ===================================================================
-import { SmartAPI } from "smartapi-javascript";
-import { TOTP } from "totp-generator";
-import fetch from 'node-fetch'; // Modern import syntax
+const { SmartAPI } = require("smartapi-javascript");
+const { TOTP } = require("totp-generator");
+const fetch = require('node-fetch');
 
 // In-memory cache to store symbol tokens for speed
 const tokenCache = new Map();
 
-export default async function handler(request, response) {
+// Using module.exports instead of 'export default'
+module.exports = async function handler(request, response) {
     const { ticker } = request.query;
     if (!ticker) {
         return response.status(400).json({ error: 'Ticker symbol is required' });
