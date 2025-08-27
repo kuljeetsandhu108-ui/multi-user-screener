@@ -1,66 +1,53 @@
-// This is the VERIFIED AND TESTED code for /api/stock-data.js
+// ===================================================================
+// DIAGNOSTIC TEST CODE for /api/stock-data.js
+// This code's only purpose is to test the Angel One login.
+// ===================================================================
 const { SmartAPI } = require("smartapi-javascript");
 const { TOTP } = require("totp-generator");
 
 export default async function handler(request, response) {
-    const { ticker } = request.query;
-    if (!ticker) {
-        return response.status(400).json({ error: 'Ticker symbol is required' });
-    }
-
-    const smart_api = new SmartAPI({
-        api_key: process.env.ANGEL_API_KEY,
-    });
     
-    try {
-        const totp = TOTP.generate(process.env.ANGEL_TOTP_SECRET).otp;
+    // We are ignoring the ticker for this test. We are only testing the login.
 
+    try {
+        console.log("--- Starting Login Test ---");
+
+        // Step 1: Initialize the SmartAPI object.
+        const smart_api = new SmartAPI({
+            api_key: process.env.ANGEL_API_KEY,
+        });
+        console.log("SmartAPI object initialized.");
+
+        // Step 2: Generate the Time-based One Time Password (TOTP).
+        const totp = TOTP.generate(process.env.ANGEL_TOTP_SECRET).otp;
+        console.log("TOTP generated successfully.");
+
+        // Step 3: Attempt to generate a session (this is the login).
+        console.log("Attempting to generate session...");
         const session = await smart_api.generateSession(
             process.env.ANGEL_CLIENT_ID, 
             process.env.ANGEL_PASSWORD,
             totp
         );
+        console.log("Session generation was successful!");
 
-        const symbolParts = ticker.split('-');
-        const tradingSymbol = symbolParts[0];
-        const exchange = symbolParts[1];
-
-        // THE GUARANTEED FIX: The correct function is getLatestPrice.
-        // It requires a different input format.
-        const quoteRequest = [
-            {
-                "exchange": exchange,
-                "tradingsymbol": tradingSymbol
-            }
-        ];
-        const quoteResponse = await smart_api.getLatestPrice(quoteRequest);
-
-        // Check if the API returned a successful response
-        if (quoteResponse.status === false || !quoteResponse.data || quoteResponse.data.length === 0) {
-            throw new Error(quoteResponse.message || "No data returned from API for the given symbol.");
-        }
-        
-        const quoteData = quoteResponse.data[0];
-
-        // Format the data into a clean structure for the frontend
-        const formattedData = {
-            name: quoteData.tradingsymbol, // Note: getLatestPrice does not return the full company name
-            ticker: `${quoteData.tradingsymbol}-${quoteData.exchange}`,
-            price: quoteData.ltp,
-            change: quoteData.change,
-            changePct: quoteData.pChange,
-            open: quoteData.open,
-            high: quoteData.high,
-            low: quoteData.low,
-            close: quoteData.close,
-            volume: quoteData.tradeVolume
-        };
-
-        response.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate');
-        return response.status(200).json(formattedData);
+        // If we reach this line, the login worked. Send a success message.
+        return response.status(200).json({ 
+            status: "SUCCESS", 
+            message: "Login to Angel One was successful!",
+            sessionData: session // This will show us the user data if successful
+        });
 
     } catch (error) {
-        console.error("Caught Error:", error); 
-        return response.status(500).json({ error: 'Failed to fetch data from Angel One API.', details: error.message });
+        // If ANY step above fails, we will end up here.
+        console.error("--- LOGIN TEST FAILED ---");
+        console.error(error); // This logs the detailed error on the Vercel server.
+        
+        // Send a clear error message back to the browser.
+        return response.status(500).json({ 
+            status: "FAILED",
+            message: "The login process failed.", 
+            details: error.message // This will tell us exactly what went wrong.
+        });
     }
 }
