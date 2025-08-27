@@ -1,15 +1,12 @@
 // ===================================================================
-// FINAL, VERIFIED, STABLE CODE for /api/stock-data.js
-// Using the correct CommonJS syntax (require/module.exports)
+// FINAL PRODUCTION CODE with STARTSWITH LOOKUP
 // ===================================================================
 const { SmartAPI } = require("smartapi-javascript");
 const { TOTP } = require("totp-generator");
 const fetch = require('node-fetch');
 
-// In-memory cache to store symbol tokens for speed
 const tokenCache = new Map();
 
-// Using module.exports instead of 'export default'
 module.exports = async function handler(request, response) {
     const { ticker } = request.query;
     if (!ticker) {
@@ -36,7 +33,6 @@ module.exports = async function handler(request, response) {
         
         let symbolToken;
 
-        // Dynamic Symbol Token Lookup
         if (tokenCache.has(ticker)) {
             symbolToken = tokenCache.get(ticker);
         } else {
@@ -44,7 +40,10 @@ module.exports = async function handler(request, response) {
             const instrumentResponse = await fetch(instrumentListUrl);
             const instruments = await instrumentResponse.json();
             
-            const instrument = instruments.find(inst => inst.symbol === tradingSymbol && inst.exch_seg === exchange);
+            // THE FIX IS HERE: Use startsWith to match symbols like "RELIANCE-EQ"
+            const instrument = instruments.find(inst => 
+                inst.symbol.startsWith(tradingSymbol) && inst.exch_seg === exchange && inst.instrumenttype === ""
+            );
 
             if (!instrument) {
                 throw new Error(`Symbol token not found for ${ticker}`);
@@ -53,7 +52,6 @@ module.exports = async function handler(request, response) {
             tokenCache.set(ticker, symbolToken);
         }
 
-        // Fetch the full quote using the correct Symbol Token
         const quoteAPIEndpoint = 'https://apiconnect.angelbroking.com/rest/secure/angelbroking/market/v1/quote/';
         
         const apiResponse = await fetch(quoteAPIEndpoint, {
