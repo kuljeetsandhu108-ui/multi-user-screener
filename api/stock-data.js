@@ -1,9 +1,9 @@
 // ===================================================================
-// FINAL PRODUCTION CODE with DYNAMIC SYMBOL TOKEN LOOKUP
+// FINAL CODE - "type": "module" COMPATIBLE VERSION
 // ===================================================================
-const { SmartAPI } = require("smartapi-javascript");
-const { TOTP } = require("totp-generator");
-const fetch = require('node-fetch'); // We need to explicitly import fetch
+import { SmartAPI } from "smartapi-javascript";
+import { TOTP } from "totp-generator";
+import fetch from 'node-fetch'; // Modern import syntax
 
 // In-memory cache to store symbol tokens for speed
 const tokenCache = new Map();
@@ -34,46 +34,38 @@ export default async function handler(request, response) {
         
         let symbolToken;
 
-        // Step 1: DYNAMIC SYMBOL TOKEN LOOKUP
-        // Check our cache first to avoid slow lookups
+        // Dynamic Symbol Token Lookup
         if (tokenCache.has(ticker)) {
             symbolToken = tokenCache.get(ticker);
         } else {
-            // If not in cache, fetch the master list of all instruments
             const instrumentListUrl = 'https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json';
             const instrumentResponse = await fetch(instrumentListUrl);
             const instruments = await instrumentResponse.json();
             
-            // Find the correct instrument from the list
             const instrument = instruments.find(inst => inst.symbol === tradingSymbol && inst.exch_seg === exchange);
 
             if (!instrument) {
                 throw new Error(`Symbol token not found for ${ticker}`);
             }
             symbolToken = instrument.token;
-            tokenCache.set(ticker, symbolToken); // Save it to the cache for next time
+            tokenCache.set(ticker, symbolToken);
         }
 
-        // Step 2: Fetch the full quote using the correct Symbol Token
+        // Fetch the full quote using the correct Symbol Token
         const quoteAPIEndpoint = 'https://apiconnect.angelbroking.com/rest/secure/angelbroking/market/v1/quote/';
         
         const apiResponse = await fetch(quoteAPIEndpoint, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${jwtToken}`,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-UserType': 'USER',
-                'X-SourceID': 'WEB',
-                'X-ClientLocalIP': '192.168.1.1',
-                'X-ClientPublicIP': '103.1.1.1',
-                'X-MACAddress': '00:00:00:00:00:00',
-                'X-PrivateKey': process.env.ANGEL_API_KEY
+                'Authorization': `Bearer ${jwtToken}`, 'Content-Type': 'application/json',
+                'Accept': 'application/json', 'X-UserType': 'USER', 'X-SourceID': 'WEB',
+                'X-ClientLocalIP': '192.168.1.1', 'X-ClientPublicIP': '103.1.1.1',
+                'X-MACAddress': '00:00:00:00:00:00', 'X-PrivateKey': process.env.ANGEL_API_KEY
             },
             body: JSON.stringify({
                 "mode": "FULL",
                 "exchangeTokens": {
-                    [exchange]: [symbolToken] // Use the dynamic token here
+                    [exchange]: [symbolToken]
                 }
             })
         });
@@ -107,12 +99,3 @@ export default async function handler(request, response) {
         return response.status(500).json({ error: 'Failed to fetch data from Angel One API.', details: error.message });
     }
 }
-```5.  **Save the file**.
-
-#### **Step 2: Install One Final Helper Library**
-
-Our new robust code needs one more small library to make direct web requests reliably.
-In your terminal, run this one command:
-
-```bash
-npm install node-fetch

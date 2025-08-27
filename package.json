@@ -9,6 +9,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "type": "module",
   "dependencies": {
     "smartapi-javascript": "^1.0.27",
     "totp-generator": "^1.0.0"
