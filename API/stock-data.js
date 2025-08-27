@@ -1,4 +1,4 @@
-// This is the code for /api/stock-data.js
+// This is the corrected code for /api/stock-data.js
 const { SmartAPI } = require("smartapi-javascript");
 const { TOTP } = require("totp-generator");
 
@@ -30,17 +30,14 @@ export default async function handler(request, response) {
         const symbolParts = ticker.split('-');
         const tradingSymbol = symbolParts[0];
         const exchange = symbolParts[1];
-
-        const quoteRequest = {
-            "exchange": exchange,
-            "tradingsymbol": tradingSymbol
-        };
         
-        // This is a placeholder for a dynamic token lookup we will build later
-        // Angel One's streaming API requires a "symboltoken"
-        const symbolToken = "3045"; // Static token for SBIN-NSE for initial testing
+        // This is a placeholder for a dynamic token lookup we will build next.
+        // Angel One's API requires a unique "symboltoken" for each stock.
+        // We are using a hardcoded token for SBIN-NSE ("3045") for this initial test.
+        const symbolToken = "3045"; 
 
-        const quote = await smart_api.getLTP({
+        // THE FIX IS HERE: The function is called getLTPData, not getLTP.
+        const quote = await smart_api.getLTPData({
              "exchange": exchange,
              "tradingsymbol": tradingSymbol,
              "symboltoken": symbolToken
@@ -48,7 +45,7 @@ export default async function handler(request, response) {
         
         // 5. Format the data and send it back to the frontend
         const formattedData = {
-            message: `Data fetched for ${tradingSymbol} using token ${symbolToken}`,
+            message: `Success! Data fetched for ${tradingSymbol}`,
             data: quote.data
         };
 
