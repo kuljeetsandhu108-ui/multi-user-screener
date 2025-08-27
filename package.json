@@ -10,6 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "node-fetch": "^2.7.0",
     "smartapi-javascript": "^1.0.27",
     "totp-generator": "^1.0.0"
   }
