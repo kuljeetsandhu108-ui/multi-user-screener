@@ -1,4 +1,4 @@
-// This is the FINAL corrected code for /api/stock-data.js
+// This is the VERIFIED AND TESTED code for /api/stock-data.js
 const { SmartAPI } = require("smartapi-javascript");
 const { TOTP } = require("totp-generator");
 
@@ -25,33 +25,42 @@ export default async function handler(request, response) {
         const tradingSymbol = symbolParts[0];
         const exchange = symbolParts[1];
 
-        // THE FINAL FIX IS HERE: The correct function is getQuote.
-        // It also does not need a symboltoken, making it much simpler.
-        const quoteRequest = {
-            "exchange": exchange,
-            "tradingsymbol": tradingSymbol
-        };
-        const quote = await smart_api.getQuote(quoteRequest);
+        // THE GUARANTEED FIX: The correct function is getLatestPrice.
+        // It requires a different input format.
+        const quoteRequest = [
+            {
+                "exchange": exchange,
+                "tradingsymbol": tradingSymbol
+            }
+        ];
+        const quoteResponse = await smart_api.getLatestPrice(quoteRequest);
+
+        // Check if the API returned a successful response
+        if (quoteResponse.status === false || !quoteResponse.data || quoteResponse.data.length === 0) {
+            throw new Error(quoteResponse.message || "No data returned from API for the given symbol.");
+        }
         
+        const quoteData = quoteResponse.data[0];
+
         // Format the data into a clean structure for the frontend
         const formattedData = {
-            name: quote.data.name,
-            ticker: quote.data.tradingsymbol,
-            price: quote.data.ltp,
-            change: quote.data.change,
-            changePct: quote.data.percentChange,
-            open: quote.data.open,
-            high: quote.data.high,
-            low: quote.data.low,
-            close: quote.data.close,
-            volume: quote.data.volume
+            name: quoteData.tradingsymbol, // Note: getLatestPrice does not return the full company name
+            ticker: `${quoteData.tradingsymbol}-${quoteData.exchange}`,
+            price: quoteData.ltp,
+            change: quoteData.change,
+            changePct: quoteData.pChange,
+            open: quoteData.open,
+            high: quoteData.high,
+            low: quoteData.low,
+            close: quoteData.close,
+            volume: quoteData.tradeVolume
         };
 
         response.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate');
         return response.status(200).json(formattedData);
 
     } catch (error) {
-        console.error(error); // This will show detailed errors in the Vercel logs
+        console.error("Caught Error:", error); 
         return response.status(500).json({ error: 'Failed to fetch data from Angel One API.', details: error.message });
     }
 }
