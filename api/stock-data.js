@@ -1,6 +1,6 @@
 // ===================================================================
-// FINAL, VERIFIED PRODUCTION CODE for /api/stock-data.js
-// This version bypasses the broken library and makes a direct HTTP API call.
+// FINAL FORMAT FIX for /api/stock-data.js
+// This version uses the correct body format for the API request.
 // ===================================================================
 const { SmartAPI } = require("smartapi-javascript");
 const { TOTP } = require("totp-generator");
@@ -18,26 +18,21 @@ export default async function handler(request, response) {
     try {
         const totp = TOTP.generate(process.env.ANGEL_TOTP_SECRET).otp;
 
-        // Step 1: Use the library ONLY to log in and get the authorization tokens.
-        // We have proven this part works perfectly.
         const session = await smart_api.generateSession(
             process.env.ANGEL_CLIENT_ID, 
             process.env.ANGEL_MPIN,
             totp
         );
 
-        // Extract the all-important JWT (JSON Web Token) from the session.
-        // This token is our "permission slip" to make direct API calls.
         const jwtToken = session.data.jwtToken;
-
-        // Step 2: Make a DIRECT HTTP request to the official Angel One Quote endpoint.
-        // This bypasses the broken library functions entirely.
         const symbolParts = ticker.split('-');
         const tradingSymbol = symbolParts[0];
         const exchange = symbolParts[1];
-
+        
         const quoteAPIEndpoint = 'https://apiconnect.angelbroking.com/rest/secure/angelbroking/market/v1/quote/';
         
+        // THE FINAL FORMAT FIX IS HERE:
+        // The API expects a different structure inside the body.
         const apiResponse = await fetch(quoteAPIEndpoint, {
             method: 'POST',
             headers: {
@@ -46,35 +41,39 @@ export default async function handler(request, response) {
                 'Accept': 'application/json',
                 'X-UserType': 'USER',
                 'X-SourceID': 'WEB',
-                'X-ClientLocalIP': '192.168.1.1', // Standard placeholder
-                'X-ClientPublicIP': '103.1.1.1',  // Standard placeholder
-                'X-MACAddress': '00:00:00:00:00:00',// Standard placeholder
+                'X-ClientLocalIP': '192.168.1.1',
+                'X-ClientPublicIP': '103.1.1.1',
+                'X-MACAddress': '00:00:00:00:00:00',
                 'X-PrivateKey': process.env.ANGEL_API_KEY
             },
             body: JSON.stringify({
-                "exchange": exchange,
-                "tradingsymbol": tradingSymbol
+                "mode": "FULL", // Changed from "exchange"
+                "exchangeTokens": {
+                    [exchange]: [tradingSymbol] // Changed structure
+                }
             })
         });
 
         const quoteData = await apiResponse.json();
 
-        if (quoteData.status === false) {
+        if (quoteData.status === false || !quoteData.data) {
              throw new Error(quoteData.message || "Invalid data returned from API.");
         }
 
-        // Step 3: Format the data and send it back.
+        // The data is nested inside the 'fetched' array
+        const stockInfo = quoteData.data.fetched[0];
+
         const formattedData = {
-            name: quoteData.data.name,
-            ticker: quoteData.data.tradingsymbol,
-            price: quoteData.data.ltp,
-            change: quoteData.data.change,
-            changePct: quoteData.data.percentChange,
-            open: quoteData.data.open,
-            high: quoteData.data.high,
-            low: quoteData.data.low,
-            close: quoteData.data.close,
-            volume: quoteData.data.volume
+            name: stockInfo.tradingSymbol,
+            ticker: `${stockInfo.tradingSymbol}-${stockInfo.exchange}`,
+            price: stockInfo.ltp,
+            change: stockInfo.change,
+            changePct: stockInfo.percChange,
+            open: stockInfo.open,
+            high: stockInfo.high,
+            low: stockInfo.low,
+            close: stockInfo.close,
+            volume: stockInfo.tradeVolume
         };
 
         response.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate');
