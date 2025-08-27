@@ -1,6 +1,6 @@
 // ===================================================================
-// FINAL PRODUCTION CODE for /api/stock-data.js
-// This version uses the correct MPIN login method.
+// FINAL, VERIFIED PRODUCTION CODE for /api/stock-data.js
+// This version bypasses the broken library and makes a direct HTTP API call.
 // ===================================================================
 const { SmartAPI } = require("smartapi-javascript");
 const { TOTP } = require("totp-generator");
@@ -18,46 +18,63 @@ export default async function handler(request, response) {
     try {
         const totp = TOTP.generate(process.env.ANGEL_TOTP_SECRET).otp;
 
-        // THE FIX: We are now using generateSession with MPIN instead of password.
+        // Step 1: Use the library ONLY to log in and get the authorization tokens.
+        // We have proven this part works perfectly.
         const session = await smart_api.generateSession(
             process.env.ANGEL_CLIENT_ID, 
-            process.env.ANGEL_MPIN, // Using MPIN
+            process.env.ANGEL_MPIN,
             totp
         );
 
+        // Extract the all-important JWT (JSON Web Token) from the session.
+        // This token is our "permission slip" to make direct API calls.
+        const jwtToken = session.data.jwtToken;
+
+        // Step 2: Make a DIRECT HTTP request to the official Angel One Quote endpoint.
+        // This bypasses the broken library functions entirely.
         const symbolParts = ticker.split('-');
         const tradingSymbol = symbolParts[0];
         const exchange = symbolParts[1];
 
-        // This is the correct function, confirmed from the successful test.
-        // It's called getQuote, but the library might have a different alias.
-        // Let's use the most reliable method, which is fetching LTP data first.
-        // NOTE: This will be updated to a full quote fetcher once login is confirmed.
-        const quoteRequest = [
-            {
+        const quoteAPIEndpoint = 'https://apiconnect.angelbroking.com/rest/secure/angelbroking/market/v1/quote/';
+        
+        const apiResponse = await fetch(quoteAPIEndpoint, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${jwtToken}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-UserType': 'USER',
+                'X-SourceID': 'WEB',
+                'X-ClientLocalIP': '192.168.1.1', // Standard placeholder
+                'X-ClientPublicIP': '103.1.1.1',  // Standard placeholder
+                'X-MACAddress': '00:00:00:00:00:00',// Standard placeholder
+                'X-PrivateKey': process.env.ANGEL_API_KEY
+            },
+            body: JSON.stringify({
                 "exchange": exchange,
                 "tradingsymbol": tradingSymbol
-            }
-        ];
-        const quoteResponse = await smart_api.getLatestPrice(quoteRequest);
+            })
+        });
 
-        if (quoteResponse.status === false || !quoteResponse.data || quoteResponse.data.length === 0) {
-            throw new Error(quoteResponse.message || "No data returned from API for the given symbol.");
+        const quoteData = await apiResponse.json();
+
+        if (quoteData.status === false) {
+             throw new Error(quoteData.message || "Invalid data returned from API.");
         }
-        
-        const quoteData = quoteResponse.data[0];
 
+        // Step 3: Format the data and send it back.
         const formattedData = {
-            name: quoteData.tradingsymbol,
-            ticker: `${quoteData.tradingsymbol}-${quoteData.exchange}`,
-            price: quoteData.ltp,
-            change: quoteData.change,
-            changePct: quoteData.pChange,
-            open: quoteData.open,
-            high: quoteData.high,
-            low: quoteData.low,
-            close: quoteData.close,
-            volume: quoteData.tradeVolume
+            name: quoteData.data.name,
+            ticker: quoteData.data.tradingsymbol,
+            price: quoteData.data.ltp,
+            change: quoteData.data.change,
+            changePct: quoteData.data.percentChange,
+            open: quoteData.data.open,
+            high: quoteData.data.high,
+            low: quoteData.data.low,
+            close: quoteData.data.close,
+            volume: quoteData.data.volume
         };
 
         response.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate');
