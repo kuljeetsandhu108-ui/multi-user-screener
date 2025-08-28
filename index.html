@@ -6,73 +6,125 @@
     <title>Real-Time Stock Screener</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
-    <!-- NEW: Lightweight Charts™ Library -->
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
-    <style> /* ... All previous CSS remains the same ... */ </style>
+    <style>
+        body { font-family: 'Roboto', sans-serif; background-color: #f0f2f5; color: #333; margin: 0; padding: 20px; box-sizing: border-box; }
+        .container { display: grid; grid-template-columns: 2.5fr 1fr; gap: 20px; max-width: 1400px; margin: auto; }
+        .card { background-color: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 15px; }
+        .stock-name { font-size: 28px; font-weight: 700; }
+        .stock-ticker { font-size: 16px; color: #666; }
+        .price-info { text-align: right; }
+        .price { font-size: 36px; font-weight: 500; }
+        .change { font-size: 18px; font-weight: 500; margin-left: 10px; }
+        .positive { color: #26a69a; }
+        .negative { color: #ef5350; }
+        .search-container { width: 100%; margin-top: 20px; display: flex; gap: 10px; }
+        .search-input { width: 100%; padding: 12px 15px; font-size: 16px; border: 1px solid #ddd; border-radius: 6px; outline: none; }
+        .search-input:focus { border-color: #4285F4; }
+        .search-button { padding: 12px 25px; font-size: 16px; font-weight: 500; background-color: #4285F4; color: white; border: none; border-radius: 6px; cursor: pointer; transition: background-color 0.2s; }
+        .search-button:hover { background-color: #357ae8; }
+        .search-button:disabled { background-color: #9e9e9e; cursor: not-allowed; }
+        .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 20px; }
+        .metric { display: flex; justify-content: space-between; align-items: center; font-size: 15px; }
+        .metric-label { color: #666; }
+        .metric-value { font-weight: 500; }
+        .loader { text-align: center; padding: 100px; font-size: 20px; font-weight: 500; color: #666; }
+        .hidden { display: none; }
+        #meter_div { width: 100%; height: 180px; }
+        .rsi-oversold { color: #2e7d32; font-weight: 700; }
+        .rsi-overbought { color: #c62828; font-weight: 700; }
+        .rsi-neutral { color: #333; }
+        .interpretation { font-size: 12px; font-style: italic; text-align: right; }
+        .scan-passed { color: #2e7d32; font-weight: 700; }
+        .scan-failed { color: #c62828; font-weight: 700; }
+        .piotroski-strong { color: #2e7d32; }
+        .piotroski-weak { color: #c62828; }
+    </style>
 </head>
 <body>
     <div id="loader" class="loader">Loading Screener...</div>
     <div id="dashboardContent" class="container hidden">
         <div class="left-column">
-             <div class="card"> /* ... Header card content ... */ </div>
-            <!-- The Chart Card's content is now simpler -->
+            <div class="card">
+                <div class="header">
+                    <div>
+                        <div id="stockName" class="stock-name">-</div>
+                        <div id="stockTicker" class="stock-ticker">-</div>
+                    </div>
+                    <div class="price-info">
+                        <span id="stockPrice" class="price">-</span>
+                        <span id="stockChange" class="change"></span>
+                    </div>
+                </div>
+                <div class="search-container">
+                    <input type="text" id="tickerInput" class="search-input" placeholder="Enter Ticker (e.g., RELIANCE)">
+                    <button id="searchBtn" class="search-button">Search</button>
+                </div>
+            </div>
             <div class="card" style="margin-top: 20px; height: 550px; padding: 0;">
                 <div id="chart-container" style="height: 100%; width: 100%;"></div>
             </div>
         </div>
-        <div class="right-column"> /* ... All right-column cards remain the same ... */ </div>
+        <div class="right-column">
+            <div class="card">
+                <h4>Technical Summary</h4>
+                <div id="meter_div"></div>
+            </div>
+            <div class="card" style="margin-top: 20px;">
+                <h4>Key Metrics</h4>
+                <div class="metrics-grid">
+                    <div class="metric"><span class="metric-label">Open</span> <span id="openValue" class="metric-value">-</span></div>
+                    <div class="metric"><span class="metric-label">High</span> <span id="highValue" class="metric-value">-</span></div>
+                    <div class="metric"><span class="metric-label">Low</span> <span id="lowValue" class="metric-value">-</span></div>
+                    <div class="metric"><span class="metric-label">Prev. Close</span> <span id="closeValue" class="metric-value">-</span></div>
+                    <div class="metric"><span class="metric-label">Volume</span> <span id="volumeValue" class="metric-value">-</span></div>
+                </div>
+            </div>
+            <div class="card" style="margin-top: 20px;">
+                <h4>Technical Indicators</h4>
+                <div class="metrics-grid">
+                    <div class="metric"><span class="metric-label">RSI (14)</span> <span id="rsiValue" class="metric-value">-</span></div>
+                    <div class="metric"><span></span> <span id="rsiInterp" class="interpretation"></span></div>
+                    <div class="metric"><span class="metric-label">EMA (20)</span> <span id="ema20Value" class="metric-value">-</span></div>
+                    <div class="metric"><span class="metric-label">EMA (50)</span> <span id="ema50Value" class="metric-value">-</span></div>
+                </div>
+            </div>
+            <div class="card" style="margin-top: 20px;">
+                <h4>Fundamental Scans</h4>
+                <div class="metrics-grid" style="grid-template-columns: 1fr;">
+                    <div class="metric"><span class="metric-label">Piotroski F-Score</span><span id="piotroskiValue" class="metric-value">- / 9</span></div>
+                    <div class="metric"><span class="metric-label">Graham Scan</span><span id="grahamValue" class="metric-value">-</span></div>
+                     <div class="metric"><span class="metric-label">FII Shareholding</span><span id="fiiValue" class="metric-value">- %</span></div>
+                </div>
+            </div>
+        </div>
     </div>
     
     <script>
-        // --- THIS IS THE NEW, GUARANTEED CHART LOGIC ---
-        let chart = null; // Global chart variable
-        
+        let chart = null;
         function createChart(chartData) {
             const chartContainer = document.getElementById('chart-container');
-            chartContainer.innerHTML = ''; // Clear previous chart
-            
+            if (!chartContainer) return;
+            chartContainer.innerHTML = '';
             chart = LightweightCharts.createChart(chartContainer, {
-                width: chartContainer.clientWidth,
-                height: chartContainer.clientHeight,
+                width: chartContainer.clientWidth, height: chartContainer.clientHeight,
                 layout: { textColor: 'black', background: { type: 'solid', color: 'white' } },
-                grid: { vertLines: { color: '#f0f0f0' }, horzLines: { color: '#f0f0f0' } },
+                grid: { vertLines: { color: '#f2f2f2' }, horzLines: { color: '#f2f2f2' } },
                 crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
             });
-            
             const candleSeries = chart.addCandlestickSeries({
-                upColor: '#26a69a', downColor: '#ef5350',
-                borderDownColor: '#ef5350', borderUpColor: '#26a69a',
-                wickDownColor: '#ef5350', wickUpColor: '#26a69a',
+                upColor: '#26a69a', downColor: '#ef5350', borderDownColor: '#ef5350',
+                borderUpColor: '#26a69a', wickDownColor: '#ef5350', wickUpColor: '#26a69a',
             });
-            
             candleSeries.setData(chartData);
             chart.timeScale().fitContent();
-
-            // Handle resizing
-             new ResizeObserver(entries => {
+            new ResizeObserver(entries => {
                 if (entries.length > 0 && entries[0].contentRect.width > 0) {
                     chart.applyOptions({ width: entries[0].contentRect.width });
                 }
             }).observe(chartContainer);
         }
-        
-        // --- The updateDashboard function now calls createChart ---
-        function updateDashboard(data) {
-            // ... all previous update logic remains the same ...
-            // Update Header, Key Metrics, Indicators, Meter, Scans, etc.
-
-            // NEW: Create the chart with our own historical data
-            if (data.history) {
-                createChart(data.history);
-            }
-        }
-        
-        // --- All other JavaScript functions (searchStock, etc.) remain the same ---
-        // I have included the full, correct script below for certainty.
-    </script>
-    <script> // Full script for copy-pasting
-        let chart = null;
-        function createChart(chartData) { const chartContainer = document.getElementById('chart-container'); chartContainer.innerHTML = ''; chart = LightweightCharts.createChart(chartContainer, { width: chartContainer.clientWidth, height: chartContainer.clientHeight, layout: { textColor: 'black', background: { type: 'solid', color: 'white' } }, grid: { vertLines: { color: '#f0f0f0' }, horzLines: { color: '#f0f0f0' } }, crosshair: { mode: LightweightCharts.CrosshairMode.Normal }, }); const candleSeries = chart.addCandlestickSeries({ upColor: '#26a69a', downColor: '#ef5350', borderDownColor: '#ef5350', borderUpColor: '#26a69a', wickDownColor: '#ef5350', wickUpColor: '#26a69a', }); candleSeries.setData(chartData); chart.timeScale().fitContent(); new ResizeObserver(entries => { if (entries.length > 0 && entries[0].contentRect.width > 0) { chart.applyOptions({ width: entries[0].contentRect.width }); } }).observe(chartContainer); }
         function formatVolume(num) { if (!num || isNaN(num)) return '-'; if (num >= 10000000) return (num / 10000000).toFixed(2) + ' Cr'; if (num >= 100000) return (num / 100000).toFixed(2) + ' Lac'; if (num >= 1000) return (num / 1000).toFixed(2) + ' K'; return num.toString(); }
         function drawMeter(recommendation) { if (typeof google === 'undefined' || !google.visualization) return; let meterValue = 2; switch(recommendation) { case "Strong Sell": meterValue = 0; break; case "Sell": meterValue = 1; break; case "Neutral": meterValue = 2; break; case "Buy": meterValue = 3; break; case "Strong Buy": meterValue = 4; break; } const data = google.visualization.arrayToDataTable([['Label', 'Value'], [recommendation, meterValue]]); const options = { width: '100%', height: 180, redFrom: 0, redTo: 1.5, yellowFrom: 1.5, yellowTo: 2.5, greenFrom: 2.5, greenTo: 4, minorTicks: 4, min: 0, max: 4, animation: { duration: 500, easing: 'out' } }; const chart = new google.visualization.Gauge(document.getElementById('meter_div')); chart.draw(data, options); }
         function updateDashboard(data) {
@@ -89,7 +141,7 @@
             const piotroskiEl = document.getElementById('piotroskiValue'); if (data.piotroskiFScore !== null) { piotroskiEl.textContent = `${data.piotroskiFScore} / 9`; if (data.piotroskiFScore >= 7) { piotroskiEl.className = 'metric-value piotroski-strong'; } else if (data.piotroskiFScore <= 3) { piotroskiEl.className = 'metric-value piotroski-weak'; } else { piotroskiEl.className = 'metric-value'; } } else { piotroskiEl.textContent = 'N/A'; }
             const grahamEl = document.getElementById('grahamValue'); if (data.grahamScanPassed !== null) { grahamEl.textContent = data.grahamScanPassed ? 'Pass' : 'Fail'; grahamEl.className = data.grahamScanPassed ? 'metric-value scan-passed' : 'metric-value scan-failed'; } else { grahamEl.textContent = 'N/A'; }
             const fiiEl = document.getElementById('fiiValue'); if (data.fiiPercentage !== null) { fiiEl.textContent = `${(data.fiiPercentage).toFixed(2)} %`; } else { fiiEl.textContent = 'N/A'; }
-            if (data.history) { createChart(data.history); }
+            if (data.history && data.history.length > 0) { createChart(data.history); }
         }
         async function searchStock(ticker) { const searchButton = document.getElementById('searchBtn'); if (!ticker) { alert('Please enter a stock ticker.'); return; } searchButton.disabled = true; searchButton.textContent = 'Loading...'; const isFirstLoad = document.getElementById('dashboardContent').classList.contains('hidden'); if (isFirstLoad) { document.getElementById('loader').classList.remove('hidden'); } try { const apiUrl = `/api/stock-data?ticker=${ticker.toUpperCase()}`; const response = await fetch(apiUrl); const data = await response.json(); if (!response.ok || data.error) { throw new Error(data.details || 'Stock not found or API error.'); } updateDashboard(data); if (isFirstLoad) { document.getElementById('loader').classList.add('hidden'); document.getElementById('dashboardContent').classList.remove('hidden'); } } catch (error) { alert(`Error: ${error.message}`); if (isFirstLoad) { document.getElementById('loader').classList.add('hidden'); document.getElementById('dashboardContent').classList.remove('hidden'); } } finally { searchButton.disabled = false; searchButton.textContent = 'Search'; } }
         google.charts.load('current', {'packages':['gauge']});
