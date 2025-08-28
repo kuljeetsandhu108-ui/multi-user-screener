@@ -44,13 +44,28 @@
     <div id="loader" class="loader">Loading Screener...</div>
     <div id="dashboardContent" class="container hidden">
         <div class="left-column">
-            <div class="card"> /* ... Header card content ... */ </div>
+            <div class="card">
+                <div class="header">
+                    <div>
+                        <div id="stockName" class="stock-name">-</div>
+                        <div id="stockTicker" class="stock-ticker">-</div>
+                    </div>
+                    <div class="price-info">
+                        <span id="stockPrice" class="price">-</span>
+                        <span id="stockChange" class="change"></span>
+                    </div>
+                </div>
+                <div class="search-container">
+                    <input type="text" id="tickerInput" class="search-input" placeholder="Enter Ticker (e.g., RELIANCE)">
+                    <button id="searchBtn" class="search-button">Search</button>
+                </div>
+            </div>
             <div class="card" style="margin-top: 20px; height: 550px;">
                 <div id="tradingview-widget-container" style="height: 100%; width: 100%;"></div>
             </div>
         </div>
         <div class="right-column">
-            <!-- NEW METER CARD -->
+            <!-- METER CARD -->
             <div class="card">
                 <h4>Technical Summary</h4>
                 <div id="meter_div"></div>
@@ -66,7 +81,7 @@
                     <div class="metric"><span class="metric-label">Volume</span> <span id="volumeValue" class="metric-value">-</span></div>
                 </div>
             </div>
-            <!-- NEW INDICATORS CARD -->
+            <!-- INDICATORS CARD -->
             <div class="card" style="margin-top: 20px;">
                 <h4>Technical Indicators</h4>
                 <div class="metrics-grid">
@@ -78,15 +93,30 @@
             </div>
         </div>
     </div>
+    
     <script>
-        google.charts.load('current', {'packages':['gauge']});
-        google.charts.setOnLoadCallback(() => console.log("Charts loaded."));
+        // ===================================================================
+        // CORRECTED JAVASCRIPT SECTION
+        // ===================================================================
+        
+        // --- All functions must be defined first ---
+        
+        function formatVolume(num) {
+            if (!num || isNaN(num)) return '-';
+            if (num >= 10000000) return (num / 10000000).toFixed(2) + ' Cr';
+            if (num >= 100000) return (num / 100000).toFixed(2) + ' Lac';
+            if (num >= 1000) return (num / 1000).toFixed(2) + ' K';
+            return num.toString();
+        }
 
         function drawMeter(recommendation) {
+            if (typeof google === 'undefined' || !google.visualization) return; // Guard clause
             let meterValue = 2; // Default to Neutral
             switch(recommendation) {
-                case "Strong Sell": meterValue = 0; break; case "Sell": meterValue = 1; break;
-                case "Neutral": meterValue = 2; break; case "Buy": meterValue = 3; break;
+                case "Strong Sell": meterValue = 0; break;
+                case "Sell": meterValue = 1; break;
+                case "Neutral": meterValue = 2; break;
+                case "Buy": meterValue = 3; break;
                 case "Strong Buy": meterValue = 4; break;
             }
             const data = google.visualization.arrayToDataTable([['Label', 'Value'], [recommendation, meterValue]]);
@@ -96,7 +126,6 @@
         }
 
         function updateDashboard(data) {
-            // Update Header and Key Metrics
             document.getElementById('stockName').textContent = data.name || data.ticker.split('-')[0];
             document.getElementById('stockTicker').textContent = data.ticker;
             document.getElementById('stockPrice').textContent = data.price ? `₹${data.price.toFixed(2)}` : '-';
@@ -112,7 +141,6 @@
             document.getElementById('closeValue').textContent = data.close ? data.close.toFixed(2) : '-';
             document.getElementById('volumeValue').textContent = formatVolume(data.volume);
 
-            // NEW: Update Technical Indicators
             const rsiValueEl = document.getElementById('rsiValue');
             const rsiInterpEl = document.getElementById('rsiInterp');
             if (data.rsi) {
@@ -124,20 +152,92 @@
             document.getElementById('ema20Value').textContent = data.ema20 ? data.ema20.toFixed(2) : '-';
             document.getElementById('ema50Value').textContent = data.ema50 ? data.ema50.toFixed(2) : '-';
             
-            // NEW: Draw the meter
             drawMeter(data.recommendation);
         }
         
-        // --- Full Helper and Main Functions Below ---
-        function loadTradingViewWidget(ticker) { /* ... Same correct function as before ... */ }
-        async function searchStock(ticker) { /* ... Same correct function as before ... */ }
-        document.addEventListener('DOMContentLoaded', () => { /* ... Same correct function as before ... */ });
+        function loadTradingViewWidget(ticker) {
+            const container = document.getElementById('tradingview-widget-container');
+            if (!ticker || !container) return;
+            container.innerHTML = '';
+            const parts = ticker.split('-');
+            const symbol = parts[0];
+            const exchange = parts[parts.length - 1];
+            const tradingViewSymbol = `${exchange}:${symbol}`;
+            const script = document.createElement('script');
+            script.src = 'https://s3.tradingview.com/tv.js';
+            script.async = true;
+            script.onload = () => {
+                new TradingView.widget({ "autosize": true, "symbol": tradingViewSymbol, "interval": "D", "timezone": "Asia/Kolkata", "theme": "light", "style": "1", "locale": "en", "enable_publishing": false, "allow_symbol_change": true, "container_id": "tradingview-widget-container" });
+            };
+            container.appendChild(script);
+        }
 
-        // Helper functions
-        function formatVolume(num) { if (!num || isNaN(num)) return '-'; if (num >= 10000000) return (num / 10000000).toFixed(2) + ' Cr'; if (num >= 100000) return (num / 100000).toFixed(2) + ' Lac'; if (num >= 1000) return (num / 1000).toFixed(2) + ' K'; return num.toString(); }
-        function loadTradingViewWidget(ticker) { const container = document.getElementById('tradingview-widget-container'); if (!ticker || !container) return; container.innerHTML = ''; const parts = ticker.split('-'); const symbol = parts[0]; const exchange = parts[parts.length - 1]; const tradingViewSymbol = `${exchange}:${symbol}`; const script = document.createElement('script'); script.src = 'https://s3.tradingview.com/tv.js'; script.async = true; script.onload = () => { new TradingView.widget({ "autosize": true, "symbol": tradingViewSymbol, "interval": "D", "timezone": "Asia/Kolkata", "theme": "light", "style": "1", "locale": "en", "enable_publishing": false, "allow_symbol_change": true, "container_id": "tradingview-widget-container" }); }; container.appendChild(script); }
-        async function searchStock(ticker) { const searchButton = document.getElementById('searchBtn'); const tickerInput = document.getElementById('tickerInput'); if (!ticker) { alert('Please enter a stock ticker.'); return; } searchButton.disabled = true; searchButton.textContent = 'Loading...'; document.getElementById('loader').classList.remove('hidden'); document.getElementById('dashboardContent').classList.add('hidden'); try { const apiUrl = `/api/stock-data?ticker=${ticker.toUpperCase()}`; const response = await fetch(apiUrl); const data = await response.json(); if (!response.ok || data.error) { throw new Error(data.details || 'Stock not found or API error.'); } updateDashboard(data); loadTradingViewWidget(data.ticker); document.getElementById('loader').classList.add('hidden'); document.getElementById('dashboardContent').classList.remove('hidden'); } catch (error) { alert(`Error: ${error.message}`); document.getElementById('loader').classList.add('hidden'); document.getElementById('dashboardContent').classList.remove('hidden'); } finally { searchButton.disabled = false; searchButton.textContent = 'Search'; } }
-        document.addEventListener('DOMContentLoaded', () => { const searchButton = document.getElementById('searchBtn'); const tickerInput = document.getElementById('tickerInput'); searchButton.addEventListener('click', () => { searchStock(tickerInput.value); }); tickerInput.addEventListener('keypress', (event) => { if (event.key === 'Enter') { searchStock(tickerInput.value); } }); searchStock('RELIANCE'); });
+        async function searchStock(ticker) {
+            const searchButton = document.getElementById('searchBtn');
+            if (!ticker) {
+                alert('Please enter a stock ticker.');
+                return;
+            }
+            searchButton.disabled = true;
+            searchButton.textContent = 'Loading...';
+            // Only show the main loader on the very first load
+            const isFirstLoad = document.getElementById('dashboardContent').classList.contains('hidden');
+            if (isFirstLoad) {
+                document.getElementById('loader').classList.remove('hidden');
+            }
+            
+            try {
+                const apiUrl = `/api/stock-data?ticker=${ticker.toUpperCase()}`;
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+                if (!response.ok || data.error) {
+                    throw new Error(data.details || 'Stock not found or API error.');
+                }
+                updateDashboard(data);
+                loadTradingViewWidget(data.ticker);
+
+                if (isFirstLoad) {
+                    document.getElementById('loader').classList.add('hidden');
+                    document.getElementById('dashboardContent').classList.remove('hidden');
+                }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+                if (isFirstLoad) {
+                    // If the first load fails, still show the dashboard so user can try again
+                    document.getElementById('loader').classList.add('hidden');
+                    document.getElementById('dashboardContent').classList.remove('hidden');
+                }
+            } finally {
+                searchButton.disabled = false;
+                searchButton.textContent = 'Search';
+            }
+        }
+
+        // --- THE FIX IS HERE: We must load charts first, then run our code ---
+        
+        // 1. Load the Google Charts library
+        google.charts.load('current', {'packages':['gauge']});
+
+        // 2. Set a callback to run our main code ONLY after the charts are ready
+        google.charts.setOnLoadCallback(runApplication);
+
+        // 3. This function contains our initial page setup
+        function runApplication() {
+            const searchButton = document.getElementById('searchBtn');
+            const tickerInput = document.getElementById('tickerInput');
+            
+            searchButton.addEventListener('click', () => {
+                searchStock(tickerInput.value);
+            });
+            tickerInput.addEventListener('keypress', (event) => {
+                if (event.key === 'Enter') {
+                    searchStock(tickerInput.value);
+                }
+            });
+            
+            // Load the default stock
+            searchStock('RELIANCE');
+        }
     </script>
 </body>
 </html>
