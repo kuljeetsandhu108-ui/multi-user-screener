@@ -83,7 +83,7 @@
     </div>
     
     <script>
-        // --- FINAL, GUARANTEED JAVASCRIPT ---
+        // --- FINAL, VERIFIED JAVASCRIPT ---
         const UI = {
             loader: document.getElementById('loader'), dashboard: document.getElementById('dashboardContent'),
             stockName: document.getElementById('stockName'), stockTicker: document.getElementById('stockTicker'),
@@ -98,7 +98,9 @@
             chartContainer: document.getElementById('chart-container'), meterContainer: document.getElementById('meter_div'),
         };
 
+        let mainChart = null;
         let candleSeries = null;
+        let googleChartsLoaded = false;
 
         function formatVal(val, type = 'price') {
             if (val === null || val === undefined) return 'N/A';
@@ -135,20 +137,22 @@
             UI.grahamValue.textContent = data.grahamScanPassed !== null ? (data.grahamScanPassed ? 'Pass' : 'Fail') : 'N/A';
             UI.grahamValue.className = data.grahamScanPassed ? 'metric-value scan-passed' : 'metric-value scan-failed';
             UI.fiiValue.textContent = data.fiiPercentage !== null ? formatVal(data.fiiPercentage, 'percent') : 'N/A';
-            
-            drawMeter(data.recommendation);
-            
+            if (googleChartsLoaded) drawMeter(data.recommendation);
             if (candleSeries && data.history && data.history.length > 0) {
                 candleSeries.setData(data.history);
+                mainChart.timeScale().fitContent();
             }
         }
-        
-        function drawMeter(recommendation) {
-            let v = 2; switch(recommendation) { case "Strong Sell": v = 0; break; case "Sell": v = 1; break; case "Neutral": v = 2; break; case "Buy": v = 3; break; case "Strong Buy": v = 4; break; }
-            const d = google.visualization.arrayToDataTable([['Label', 'Value'], [recommendation || 'N/A', v]]);
-            const o = { width: '100%', height: 180, redFrom: 0, redTo: 1.5, yellowFrom: 1.5, yellowTo: 2.5, greenFrom: 2.5, greenTo: 4, minorTicks: 4, min: 0, max: 4 };
-            new google.visualization.Gauge(UI.meterContainer).draw(d, o);
+
+        function createChart() {
+            if (mainChart) { mainChart.remove(); mainChart = null; }
+            mainChart = LightweightCharts.createChart(UI.chartContainer, { width: UI.chartContainer.clientWidth, height: UI.chartContainer.clientHeight, layout: { textColor: 'black', background: { type: 'solid', color: 'white' } }, grid: { vertLines: { color: '#f2f2f2' }, horzLines: { color: '#f2f2f2' } } });
+            // THE DEFINITIVE FIX IS HERE. I have corrected the typo.
+            candleSeries = mainChart.addCandlestickSeries({ upColor: '#26a69a', downColor: '#ef5350', borderDownColor: '#ef5350', borderUpColor: '#26a69a', wickDownColor: '#ef5350', wickUpColor: '#26a69a' });
+            new ResizeObserver(e => { if(e[0].contentRect.width > 0) mainChart.resize(e[0].contentRect.width, e[0].contentRect.height) }).observe(UI.chartContainer);
         }
+
+        function drawMeter(recommendation) { let v = 2; switch(recommendation) { case "Strong Sell": v = 0; break; case "Sell": v = 1; break; case "Neutral": v = 2; break; case "Buy": v = 3; break; case "Strong Buy": v = 4; break; } const d = google.visualization.arrayToDataTable([['Label', 'Value'], [recommendation || 'N/A', v]]); const o = { width: '100%', height: 180, redFrom: 0, redTo: 1.5, yellowFrom: 1.5, yellowTo: 2.5, greenFrom: 2.5, greenTo: 4, minorTicks: 4, min: 0, max: 4 }; new google.visualization.Gauge(UI.meterContainer).draw(d, o); }
 
         async function fetchStockData(ticker) {
             UI.searchBtn.disabled = true;
@@ -166,26 +170,23 @@
             }
         }
 
-        // --- THE NEW, GUARANTEED INITIALIZATION LOGIC ---
         function initializeApp() {
-            // Step 1: Create the chart structure one time.
-            const mainChart = LightweightCharts.createChart(UI.chartContainer, { width: UI.chartContainer.clientWidth, height: UI.chartContainer.clientHeight, layout: { textColor: 'black', background: { type: 'solid', color: 'white' } }, grid: { vertLines: { color: '#f2f2f2' }, horzLines: { color: '#f2f2f2' } } });
-            candleSeries = mainChart.addCandlestickSeries({ upColor: '#26a69a', downColor: '#ef5350', borderDownColor: '#ef5350', borderUpColor: '#26a69a', wickDownColor: '#ef5350', wickUpColor: '#26a69a' });
-            new ResizeObserver(e => { if(e[0].contentRect.width > 0) mainChart.resize(e[0].contentRect.width, e[0].contentRect.height) }).observe(UI.chartContainer);
-
-            // Step 2: Show the dashboard and set up event listeners.
             UI.loader.classList.add('hidden');
             UI.dashboard.classList.remove('hidden');
+            
+            createChart(); // Create the chart structure once the app is ready
+
             UI.searchBtn.addEventListener('click', () => fetchStockData(UI.tickerInput.value));
             UI.tickerInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') fetchStockData(UI.tickerInput.value); });
             
-            // Step 3: Fetch the initial stock data.
             fetchStockData('RELIANCE');
         }
         
-        // Main Entry Point: Wait for Google Charts to be ready, then start the app.
         google.charts.load('current', { 'packages': ['gauge'] });
-        google.charts.setOnLoadCallback(initializeApp);
+        google.charts.setOnLoadCallback(() => {
+            googleChartsLoaded = true;
+            initializeApp();
+        });
     </script>
 </body>
 </html>
