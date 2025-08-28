@@ -189,19 +189,30 @@
             document.getElementById('volumeValue').textContent = formatVolume(data.volume);
         }
 
-        // --- Function to load the TradingView Chart ---
-        function loadTradingViewWidget(ticker) {
+        // --- THIS IS THE CORRECTED FUNCTION ---
+        function loadTradingViewWidget(ticker) { // e.g., ticker is "RELIANCE-EQ-NSE"
             const container = document.getElementById('tradingview-widget-container');
             if (!ticker || !container) return;
             container.innerHTML = ''; // Clear previous chart
             
+            // --- THE FIX IS HERE ---
+            // 1. Split the ticker into parts: ["RELIANCE", "EQ", "NSE"]
+            const parts = ticker.split('-');
+            // 2. Get the last part for the exchange: "NSE"
+            const exchange = parts[parts.length - 1];
+            // 3. Get all other parts for the symbol: "RELIANCE-EQ"
+            const symbol = parts.slice(0, parts.length - 1).join('-');
+            // 4. Reformat it for TradingView: "NSE:RELIANCE-EQ"
+            const tradingViewSymbol = `${exchange}:${symbol}`;
+            // --- END OF FIX ---
+
             const script = document.createElement('script');
             script.src = 'https://s3.tradingview.com/tv.js';
             script.async = true;
             script.onload = () => {
                 new TradingView.widget({
                     "autosize": true,
-                    "symbol": ticker.replace('-', ':'), // TradingView uses ':' (e.g., NSE:RELIANCE)
+                    "symbol": tradingViewSymbol, // Use the reformatted symbol
                     "interval": "D",
                     "timezone": "Asia/Kolkata",
                     "theme": "light",
