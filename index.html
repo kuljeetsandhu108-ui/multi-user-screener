@@ -173,11 +173,14 @@
         function initializeApp() {
             UI.loader.classList.add('hidden');
             UI.dashboard.classList.remove('hidden');
+            
             UI.searchBtn.addEventListener('click', () => fetchStockData(UI.tickerInput.value));
             UI.tickerInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') fetchStockData(UI.tickerInput.value); });
+            
             fetchStockData('RELIANCE');
         }
-
+        
+        // --- Main Entry Point ---
         google.charts.load('current', { 'packages': ['gauge'] });
         google.charts.setOnLoadCallback(() => {
             googleChartsLoaded = true;
