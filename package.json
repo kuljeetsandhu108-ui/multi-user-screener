@@ -13,6 +13,7 @@
     "dotenv": "^17.2.1",
     "node-fetch": "^2.7.0",
     "otpauth": "^9.4.1",
-    "smartapi-javascript": "^1.0.27"
+    "smartapi-javascript": "^1.0.27",
+    "technicalindicators": "^3.1.0"
   }
 }
