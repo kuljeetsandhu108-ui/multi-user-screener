@@ -48,8 +48,7 @@
                 </div>
                 <div class="search-container"><input type="text" id="tickerInput" class="search-input" placeholder="Enter Ticker (e.g., RELIANCE)"><button id="searchBtn" class="search-button">Search</button></div>
             </div>
-            <div class="card" style="margin-.
-top: 20px; height: 550px; padding: 0;"><div id="chart-container" style="height: 100%; width: 100%;"></div></div>
+            <div class="card" style="margin-top: 20px; height: 550px; padding: 0;"><div id="chart-container" style="height: 100%; width: 100%;"></div></div>
         </div>
         <div class="right-column">
             <div class="card"><h4>Technical Summary</h4><div id="meter_div"></div></div>
@@ -84,33 +83,80 @@ top: 20px; height: 550px; padding: 0;"><div id="chart-container" style="height: 
     </div>
     
     <script>
-        const UI = { loader: document.getElementById('loader'), dashboard: document.getElementById('dashboardContent'), stockName: document.getElementById('stockName'), stockTicker: document.getElementById('stockTicker'), stockPrice: document.getElementById('stockPrice'), stockChange: document.getElementById('stockChange'), openValue: document.getElementById('openValue'), highValue: document.getElementById('highValue'), lowValue: document.getElementById('lowValue'), closeValue: document.getElementById('closeValue'), volumeValue: document.getElementById('volumeValue'), rsiValue: document.getElementById('rsiValue'), rsiInterp: document.getElementById('rsiInterp'), ema20Value: document.getElementById('ema20Value'), ema50Value: document.getElementById('ema50Value'), piotroskiValue: document.getElementById('piotroskiValue'), grahamValue: document.getElementById('grahamValue'), fiiValue: document.getElementById('fiiValue'), searchBtn: document.getElementById('searchBtn'), tickerInput: document.getElementById('tickerInput'), chartContainer: document.getElementById('chart-container'), meterContainer: document.getElementById('meter_div'), };
-        let mainChart = null, candleSeries = null, googleChartsLoaded = false;
+        // --- FINAL, VERIFIED JAVASCRIPT ---
+        const UI = {
+            loader: document.getElementById('loader'), dashboard: document.getElementById('dashboardContent'),
+            stockName: document.getElementById('stockName'), stockTicker: document.getElementById('stockTicker'),
+            stockPrice: document.getElementById('stockPrice'), stockChange: document.getElementById('stockChange'),
+            openValue: document.getElementById('openValue'), highValue: document.getElementById('highValue'),
+            lowValue: document.getElementById('lowValue'), closeValue: document.getElementById('closeValue'),
+            volumeValue: document.getElementById('volumeValue'), rsiValue: document.getElementById('rsiValue'),
+            rsiInterp: document.getElementById('rsiInterp'), ema20Value: document.getElementById('ema20Value'),
+            ema50Value: document.getElementById('ema50Value'), piotroskiValue: document.getElementById('piotroskiValue'),
+            grahamValue: document.getElementById('grahamValue'), fiiValue: document.getElementById('fiiValue'),
+            searchBtn: document.getElementById('searchBtn'), tickerInput: document.getElementById('tickerInput'),
+            chartContainer: document.getElementById('chart-container'), meterContainer: document.getElementById('meter_div'),
+        };
 
-        function formatVal(val, type = 'price') { if (val === null || val === undefined) return 'N/A'; if (type === 'price') return `₹${val.toFixed(2)}`; if (type === 'percent') return `${val.toFixed(2)}%`; if (type === 'number') return val.toFixed(2); if (type === 'volume') { if (val >= 10000000) return `${(val / 10000000).toFixed(2)} Cr`; if (val >= 100000) return `${(val / 100000).toFixed(2)} Lac`; return val.toString(); } return val; }
+        let mainChart = null;
+        let candleSeries = null;
+        let googleChartsLoaded = false;
+
+        function formatVal(val, type = 'price') {
+            if (val === null || val === undefined) return 'N/A';
+            if (type === 'price') return `₹${Number(val).toFixed(2)}`;
+            if (type === 'percent') return `${Number(val).toFixed(2)}%`;
+            if (type === 'number') return Number(val).toFixed(2);
+            if (type === 'volume') {
+                if (val >= 10000000) return `${(val / 10000000).toFixed(2)} Cr`;
+                if (val >= 100000) return `${(val / 100000).toFixed(2)} Lac`;
+                return val.toString();
+            }
+            return val;
+        }
+
         function updateUI(data) {
-            UI.stockName.textContent = data.name || data.ticker.split('-')[0]; UI.stockTicker.textContent = data.ticker; UI.stockPrice.textContent = formatVal(data.price);
-            UI.stockChange.textContent = `${formatVal(data.change, 'number')} (${formatVal(data.changePct, 'percent')})`; UI.stockChange.className = data.change >= 0 ? 'change positive' : 'change negative';
-            UI.openValue.textContent = formatVal(data.open, 'price'); UI.highValue.textContent = formatVal(data.high, 'price'); UI.lowValue.textContent = formatVal(data.low, 'price'); UI.closeValue.textContent = formatVal(data.close, 'price'); UI.volumeValue.textContent = formatVal(data.volume, 'volume');
-            UI.rsiValue.textContent = formatVal(data.rsi, 'number'); if(data.rsi > 70) UI.rsiInterp.textContent = 'Overbought'; else if(data.rsi < 30) UI.rsiInterp.textContent = 'Oversold'; else UI.rsiInterp.textContent = 'Neutral';
-            UI.ema20Value.textContent = formatVal(data.ema20, 'price'); UI.ema50Value.textContent = formatVal(data.ema50, 'price');
+            UI.stockName.textContent = data.name || data.ticker.split('-')[0];
+            UI.stockTicker.textContent = data.ticker;
+            UI.stockPrice.textContent = formatVal(data.price);
+            UI.stockChange.textContent = `${formatVal(data.change, 'number')} (${formatVal(data.changePct, 'percent')})`;
+            UI.stockChange.className = data.change >= 0 ? 'change positive' : 'change negative';
+            UI.openValue.textContent = formatVal(data.open, 'price');
+            UI.highValue.textContent = formatVal(data.high, 'price');
+            UI.lowValue.textContent = formatVal(data.low, 'price');
+            UI.closeValue.textContent = formatVal(data.close, 'price');
+            UI.volumeValue.textContent = formatVal(data.volume, 'volume');
+            UI.rsiValue.textContent = formatVal(data.rsi, 'number');
+            if (data.rsi > 70) UI.rsiInterp.textContent = 'Overbought';
+            else if (data.rsi < 30) UI.rsiInterp.textContent = 'Oversold';
+            else if (data.rsi) UI.rsiInterp.textContent = 'Neutral';
+            else UI.rsiInterp.textContent = '';
+            UI.ema20Value.textContent = formatVal(data.ema20, 'price');
+            UI.ema50Value.textContent = formatVal(data.ema50, 'price');
             UI.piotroskiValue.textContent = data.piotroskiFScore !== null ? `${data.piotroskiFScore} / 9` : 'N/A';
-            UI.grahamValue.textContent = data.grahamScanPassed !== null ? (data.grahamScanPassed ? 'Pass' : 'Fail') : 'N/A'; UI.grahamValue.className = data.grahamScanPassed ? 'metric-value scan-passed' : 'metric-value scan-failed';
+            UI.grahamValue.textContent = data.grahamScanPassed !== null ? (data.grahamScanPassed ? 'Pass' : 'Fail') : 'N/A';
+            UI.grahamValue.className = data.grahamScanPassed ? 'metric-value scan-passed' : 'metric-value scan-failed';
             UI.fiiValue.textContent = data.fiiPercentage !== null ? formatVal(data.fiiPercentage, 'percent') : 'N/A';
             if (googleChartsLoaded) drawMeter(data.recommendation);
             if (data.history && data.history.length > 0) createOrUpdateChart(data.history);
         }
+
         function createOrUpdateChart(chartData) {
             if (!mainChart) {
                 mainChart = LightweightCharts.createChart(UI.chartContainer, { width: UI.chartContainer.clientWidth, height: UI.chartContainer.clientHeight, layout: { textColor: 'black', background: { type: 'solid', color: 'white' } }, grid: { vertLines: { color: '#f2f2f2' }, horzLines: { color: '#f2f2f2' } } });
+                // THE FIX IS HERE: The function name is addCandlestickSeries (all lowercase 's')
                 candleSeries = mainChart.addCandlestickSeries({ upColor: '#26a69a', downColor: '#ef5350', borderDownColor: '#ef5350', borderUpColor: '#26a69a', wickDownColor: '#ef5350', wickUpColor: '#26a69a' });
-                new ResizeObserver(e => mainChart.resize(e[0].contentRect.width, e[0].contentRect.height)).observe(UI.chartContainer);
+                new ResizeObserver(e => { if(e[0].contentRect.width > 0) mainChart.resize(e[0].contentRect.width, e[0].contentRect.height) }).observe(UI.chartContainer);
             }
-            candleSeries.setData(chartData); mainChart.timeScale().fitContent();
+            candleSeries.setData(chartData);
+            mainChart.timeScale().fitContent();
         }
-        function drawMeter(recommendation) { let v = 2; switch(recommendation) { case "Strong Sell": v = 0; break; case "Sell": v = 1; break; case "Neutral": v = 2; break; case "Buy": v = 3; break; case "Strong Buy": v = 4; break; } const d = google.visualization.arrayToDataTable([['Label', 'Value'], [recommendation, v]]); const o = { width: '100%', height: 180, redFrom: 0, redTo: 1.5, yellowFrom: 1.5, yellowTo: 2.5, greenFrom: 2.5, greenTo: 4, minorTicks: 4, min: 0, max: 4 }; new google.visualization.Gauge(UI.meterContainer).draw(d, o); }
+
+        function drawMeter(recommendation) { let v = 2; switch(recommendation) { case "Strong Sell": v = 0; break; case "Sell": v = 1; break; case "Neutral": v = 2; break; case "Buy": v = 3; break; case "Strong Buy": v = 4; break; } const d = google.visualization.arrayToDataTable([['Label', 'Value'], [recommendation || 'N/A', v]]); const o = { width: '100%', height: 180, redFrom: 0, redTo: 1.5, yellowFrom: 1.5, yellowTo: 2.5, greenFrom: 2.5, greenTo: 4, minorTicks: 4, min: 0, max: 4 }; new google.visualization.Gauge(UI.meterContainer).draw(d, o); }
+
         async function fetchStockData(ticker) {
-            UI.searchBtn.disabled = true; UI.searchBtn.textContent = 'Loading...';
+            UI.searchBtn.disabled = true;
+            UI.searchBtn.textContent = 'Loading...';
             try {
                 const response = await fetch(`/api/stock-data?ticker=${ticker.toUpperCase()}`);
                 const data = await response.json();
@@ -119,21 +165,24 @@ top: 20px; height: 550px; padding: 0;"><div id="chart-container" style="height: 
             } catch (error) {
                 alert(`Error: ${error.message}`);
             } finally {
-                UI.searchBtn.disabled = false; UI.searchBtn.textContent = 'Search';
+                UI.searchBtn.disabled = false;
+                UI.searchBtn.textContent = 'Search';
             }
         }
-        function initialize() {
+
+        function initializeApp() {
+            UI.loader.classList.add('hidden');
+            UI.dashboard.classList.remove('hidden');
             UI.searchBtn.addEventListener('click', () => fetchStockData(UI.tickerInput.value));
             UI.tickerInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') fetchStockData(UI.tickerInput.value); });
-            
-            // Fetch initial data and then show the dashboard
-            fetchStockData('RELIANCE').then(() => {
-                UI.loader.classList.add('hidden');
-                UI.dashboard.classList.remove('hidden');
-            });
+            fetchStockData('RELIANCE');
         }
+
         google.charts.load('current', { 'packages': ['gauge'] });
-        google.charts.setOnLoadCallback(() => { googleChartsLoaded = true; initialize(); });
+        google.charts.setOnLoadCallback(() => {
+            googleChartsLoaded = true;
+            initializeApp();
+        });
     </script>
 </body>
 </html>
