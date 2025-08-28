@@ -10,8 +10,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "dotenv": "^17.2.1",
     "node-fetch": "^2.7.0",
-    "smartapi-javascript": "^1.0.27",
-    "totp-generator": "^1.0.0"
+    "otpauth": "^9.4.1",
+    "smartapi-javascript": "^1.0.27"
   }
 }
