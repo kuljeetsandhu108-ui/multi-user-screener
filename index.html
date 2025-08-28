@@ -144,7 +144,7 @@
         function createOrUpdateChart(chartData) {
             if (!mainChart) {
                 mainChart = LightweightCharts.createChart(UI.chartContainer, { width: UI.chartContainer.clientWidth, height: UI.chartContainer.clientHeight, layout: { textColor: 'black', background: { type: 'solid', color: 'white' } }, grid: { vertLines: { color: '#f2f2f2' }, horzLines: { color: '#f2f2f2' } } });
-                // THE FIX IS HERE: The function name is addCandlestickSeries (all lowercase 's')
+                // THE TYPO WAS HERE. It's addCandlestickSeries with a lowercase 's'.
                 candleSeries = mainChart.addCandlestickSeries({ upColor: '#26a69a', downColor: '#ef5350', borderDownColor: '#ef5350', borderUpColor: '#26a69a', wickDownColor: '#ef5350', wickUpColor: '#26a69a' });
                 new ResizeObserver(e => { if(e[0].contentRect.width > 0) mainChart.resize(e[0].contentRect.width, e[0].contentRect.height) }).observe(UI.chartContainer);
             }
