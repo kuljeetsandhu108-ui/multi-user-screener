@@ -168,11 +168,7 @@
 
         // --- THE NEW, GUARANTEED INITIALIZATION LOGIC ---
         function initializeApp() {
-            // Step 1: Show the dashboard UI
-            UI.loader.classList.add('hidden');
-            UI.dashboard.classList.remove('hidden');
-
-            // Step 2: Create the chart structure one time.
+            // Step 1: Create the chart structure one time.
             const mainChart = LightweightCharts.createChart(UI.chartContainer, {
                 width: UI.chartContainer.clientWidth, height: UI.chartContainer.clientHeight,
                 layout: { textColor: 'black', background: { type: 'solid', color: 'white' } },
@@ -186,11 +182,13 @@
                 if(e[0].contentRect.width > 0) mainChart.resize(e[0].contentRect.width, e[0].contentRect.height);
             }).observe(UI.chartContainer);
 
-            // Step 3: Set up event listeners for the search.
+            // Step 2: Show the dashboard and set up event listeners.
+            UI.loader.classList.add('hidden');
+            UI.dashboard.classList.remove('hidden');
             UI.searchBtn.addEventListener('click', () => fetchStockData(UI.tickerInput.value));
             UI.tickerInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') fetchStockData(UI.tickerInput.value); });
             
-            // Step 4: Fetch the initial stock data.
+            // Step 3: Fetch the initial stock data.
             fetchStockData('RELIANCE');
         }
         
