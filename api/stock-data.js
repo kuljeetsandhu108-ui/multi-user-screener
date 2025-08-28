@@ -1,5 +1,5 @@
 // ===================================================================
-// FINAL PRODUCTION CODE with STARTSWITH LOOKUP
+// FINAL UPGRADED BACKEND with Smart Ticker Handling
 // ===================================================================
 const { SmartAPI } = require("smartapi-javascript");
 const { TOTP } = require("totp-generator");
@@ -14,6 +14,15 @@ module.exports = async function handler(request, response) {
     }
 
     try {
+        // --- NEW INTELLIGENT TICKER LOGIC ---
+        let fullTicker = ticker.toUpperCase();
+        // If the user did not specify an exchange (e.g., just "TCS"),
+        // we automatically assume they mean the National Stock Exchange (NSE).
+        if (!fullTicker.includes('-')) {
+            fullTicker += '-NSE';
+        }
+        // --- END OF NEW LOGIC ---
+
         const smart_api = new SmartAPI({
             api_key: process.env.ANGEL_API_KEY,
         });
@@ -27,20 +36,21 @@ module.exports = async function handler(request, response) {
         );
 
         const jwtToken = session.data.jwtToken;
-        const symbolParts = ticker.split('-');
+        // Use the new fullTicker from now on
+        const symbolParts = fullTicker.split('-');
         const tradingSymbol = symbolParts[0];
         const exchange = symbolParts[1];
         
         let symbolToken;
 
-        if (tokenCache.has(ticker)) {
-            symbolToken = tokenCache.get(ticker);
+        if (tokenCache.has(fullTicker)) {
+            symbolToken = tokenCache.get(fullTicker);
         } else {
             const instrumentListUrl = 'https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json';
             const instrumentResponse = await fetch(instrumentListUrl);
             const instruments = await instrumentResponse.json();
             
-            // THE FIX IS HERE: Use startsWith to match symbols like "RELIANCE-EQ"
+            // Find the correct instrument from the list
             const instrument = instruments.find(inst => 
                 inst.symbol.startsWith(tradingSymbol) && inst.exch_seg === exchange && inst.instrumenttype === ""
             );
@@ -49,7 +59,7 @@ module.exports = async function handler(request, response) {
                 throw new Error(`Symbol token not found for ${ticker}`);
             }
             symbolToken = instrument.token;
-            tokenCache.set(ticker, symbolToken);
+            tokenCache.set(fullTicker, symbolToken);
         }
 
         const quoteAPIEndpoint = 'https://apiconnect.angelbroking.com/rest/secure/angelbroking/market/v1/quote/';

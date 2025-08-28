@@ -4,39 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Real-Time Stock Screener</title>
-    <!-- Google Fonts for a professional look -->
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     
     <style>
-        /* CSS for Styling the Dashboard */
-        body {
-            font-family: 'Roboto', sans-serif;
-            background-color: #f0f2f5;
-            color: #333;
-            margin: 0;
-            padding: 20px;
-        }
-        .container {
-            display: grid;
-            grid-template-columns: 2.5fr 1fr;
-            gap: 20px;
-            max-width: 1400px;
-            margin: auto;
-        }
-        .card {
-            background-color: #fff;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        }
-        .header {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            gap: 15px;
-        }
+        body { font-family: 'Roboto', sans-serif; background-color: #f0f2f5; color: #333; margin: 0; padding: 20px; }
+        .container { display: grid; grid-template-columns: 2.5fr 1fr; gap: 20px; max-width: 1400px; margin: auto; }
+        .card { background-color: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 15px; }
         .stock-name { font-size: 28px; font-weight: 700; }
         .stock-ticker { font-size: 16px; color: #666; }
         .price-info { text-align: right; }
@@ -44,72 +18,24 @@
         .change { font-size: 18px; font-weight: 500; margin-left: 10px; }
         .positive { color: #26a69a; }
         .negative { color: #ef5350; }
-
-        .search-container {
-            width: 100%;
-            margin-top: 20px;
-            display: flex;
-            gap: 10px;
-        }
-        .search-input {
-            width: 100%;
-            padding: 12px 15px;
-            font-size: 16px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            outline: none;
-        }
-        .search-input:focus {
-            border-color: #4285F4;
-        }
-        .search-button {
-            padding: 12px 25px;
-            font-size: 16px;
-            font-weight: 500;
-            background-color: #4285F4;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
+        .search-container { width: 100%; margin-top: 20px; display: flex; gap: 10px; }
+        .search-input { width: 100%; padding: 12px 15px; font-size: 16px; border: 1px solid #ddd; border-radius: 6px; outline: none; }
+        .search-input:focus { border-color: #4285F4; }
+        .search-button { padding: 12px 25px; font-size: 16px; font-weight: 500; background-color: #4285F4; color: white; border: none; border-radius: 6px; cursor: pointer; transition: background-color 0.2s; }
         .search-button:hover { background-color: #357ae8; }
         .search-button:disabled { background-color: #9e9e9e; cursor: not-allowed; }
-
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 18px;
-            margin-top: 20px;
-        }
-        .metric {
-            display: flex;
-            justify-content: space-between;
-            font-size: 15px;
-        }
+        .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 20px; }
+        .metric { display: flex; justify-content: space-between; font-size: 15px; }
         .metric-label { color: #666; }
         .metric-value { font-weight: 500; }
-
-        .loader {
-            text-align: center;
-            padding: 100px;
-            font-size: 20px;
-            font-weight: 500;
-            color: #666;
-        }
-        .hidden {
-            display: none;
-        }
+        .loader { text-align: center; padding: 100px; font-size: 20px; font-weight: 500; color: #666; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
-
     <div id="loader" class="loader">Loading Screener...</div>
-
     <div id="dashboardContent" class="container hidden">
-        <!-- Left Column -->
-        <div>
-            <!-- Header Card -->
+        <div class="left-column">
             <div class="card">
                 <div class="header">
                     <div>
@@ -122,20 +48,15 @@
                     </div>
                 </div>
                 <div class="search-container">
-                    <input type="text" id="tickerInput" class="search-input" placeholder="Enter Ticker (e.g., RELIANCE-NSE)">
+                    <input type="text" id="tickerInput" class="search-input" placeholder="Enter Ticker (e.g., RELIANCE)">
                     <button id="searchBtn" class="search-button">Search</button>
                 </div>
             </div>
-
-            <!-- TradingView Chart Card -->
             <div class="card" style="margin-top: 20px; height: 550px;">
                 <div id="tradingview-widget-container" style="height: 100%; width: 100%;"></div>
             </div>
         </div>
-
-        <!-- Right Column -->
-        <div>
-            <!-- Key Metrics Card -->
+        <div class="right-column">
             <div class="card">
                 <h4>Key Metrics</h4>
                 <div class="metrics-grid">
@@ -146,15 +67,9 @@
                     <div class="metric"><span class="metric-label">Volume</span> <span id="volumeValue" class="metric-value">-</span></div>
                 </div>
             </div>
-            
-            <!-- We will add more cards here (Indicators, etc.) in the next phase -->
         </div>
     </div>
-
     <script>
-        // JavaScript for the Dashboard Brains
-
-        // --- Helper function to format large numbers ---
         function formatVolume(num) {
             if (!num || isNaN(num)) return '-';
             if (num >= 10000000) return (num / 10000000).toFixed(2) + ' Cr';
@@ -162,13 +77,10 @@
             if (num >= 1000) return (num / 1000).toFixed(2) + ' K';
             return num.toString();
         }
-
-        // --- Function to update all the text on the page ---
         function updateDashboard(data) {
             document.getElementById('stockName').textContent = data.name || data.ticker.split('-')[0];
             document.getElementById('stockTicker').textContent = data.ticker;
             document.getElementById('stockPrice').textContent = data.price ? `₹${data.price.toFixed(2)}` : '-';
-            
             const changeElement = document.getElementById('stockChange');
             if (data.change && data.changePct) {
                 const changeText = `${data.change.toFixed(2)} (${data.changePct.toFixed(2)}%)`;
@@ -181,28 +93,26 @@
             } else {
                 changeElement.textContent = '';
             }
-            
             document.getElementById('openValue').textContent = data.open ? data.open.toFixed(2) : '-';
             document.getElementById('highValue').textContent = data.high ? data.high.toFixed(2) : '-';
             document.getElementById('lowValue').textContent = data.low ? data.low.toFixed(2) : '-';
             document.getElementById('closeValue').textContent = data.close ? data.close.toFixed(2) : '-';
             document.getElementById('volumeValue').textContent = formatVolume(data.volume);
         }
-
-        // --- THIS IS THE CORRECTED FUNCTION ---
-        function loadTradingViewWidget(ticker) { // e.g., ticker is "RELIANCE-EQ-NSE"
+        
+        function loadTradingViewWidget(ticker) { // e.g., ticker is "TATAMOTORS-EQ-NSE"
             const container = document.getElementById('tradingview-widget-container');
             if (!ticker || !container) return;
-            container.innerHTML = ''; // Clear previous chart
+            container.innerHTML = '';
             
-            // --- THE FIX IS HERE ---
-            // 1. Split the ticker into parts: ["RELIANCE", "EQ", "NSE"]
+            // --- FINAL ROBUST FIX ---
+            // 1. Split the ticker into parts: ["TATAMOTORS", "EQ", "NSE"]
             const parts = ticker.split('-');
-            // 2. Get the last part for the exchange: "NSE"
+            // 2. The base symbol is always the first part: "TATAMOTORS"
+            const symbol = parts[0];
+            // 3. The exchange is always the last part: "NSE"
             const exchange = parts[parts.length - 1];
-            // 3. Get all other parts for the symbol: "RELIANCE-EQ"
-            const symbol = parts.slice(0, parts.length - 1).join('-');
-            // 4. Reformat it for TradingView: "NSE:RELIANCE-EQ"
+            // 4. Create the clean symbol TradingView loves: "NSE:TATAMOTORS"
             const tradingViewSymbol = `${exchange}:${symbol}`;
             // --- END OF FIX ---
 
@@ -212,7 +122,7 @@
             script.onload = () => {
                 new TradingView.widget({
                     "autosize": true,
-                    "symbol": tradingViewSymbol, // Use the reformatted symbol
+                    "symbol": tradingViewSymbol, // Use the clean, reformatted symbol
                     "interval": "D",
                     "timezone": "Asia/Kolkata",
                     "theme": "light",
@@ -226,69 +136,50 @@
             container.appendChild(script);
         }
 
-        // --- Main function to search for a stock ---
         async function searchStock(ticker) {
             const searchButton = document.getElementById('searchBtn');
             const tickerInput = document.getElementById('tickerInput');
-            
             if (!ticker) {
                 alert('Please enter a stock ticker.');
                 return;
             }
-
-            // Show loading state
             searchButton.disabled = true;
             searchButton.textContent = 'Loading...';
             document.getElementById('loader').classList.remove('hidden');
             document.getElementById('dashboardContent').classList.add('hidden');
-
             try {
-                // Construct the URL to our backend API
                 const apiUrl = `/api/stock-data?ticker=${ticker.toUpperCase()}`;
-                
                 const response = await fetch(apiUrl);
                 const data = await response.json();
-
                 if (!response.ok || data.error) {
                     throw new Error(data.details || 'Stock not found or API error.');
                 }
-                
-                // Update the page with the new data
                 updateDashboard(data);
                 loadTradingViewWidget(data.ticker);
-
                 document.getElementById('loader').classList.add('hidden');
                 document.getElementById('dashboardContent').classList.remove('hidden');
-
             } catch (error) {
                 alert(`Error: ${error.message}`);
-                // If the initial load fails, we should still show the dashboard
                 document.getElementById('loader').classList.add('hidden');
                 document.getElementById('dashboardContent').classList.remove('hidden');
             } finally {
-                // Reset button state
                 searchButton.disabled = false;
                 searchButton.textContent = 'Search';
             }
         }
-
-        // --- Event Listeners to make the page interactive ---
         document.addEventListener('DOMContentLoaded', () => {
             const searchButton = document.getElementById('searchBtn');
             const tickerInput = document.getElementById('tickerInput');
-
             searchButton.addEventListener('click', () => {
                 searchStock(tickerInput.value);
             });
-
             tickerInput.addEventListener('keypress', (event) => {
                 if (event.key === 'Enter') {
                     searchStock(tickerInput.value);
                 }
             });
-
             // Load a default stock when the page first opens
-            searchStock('RELIANCE-NSE');
+            searchStock('RELIANCE');
         });
     </script>
 </body>
