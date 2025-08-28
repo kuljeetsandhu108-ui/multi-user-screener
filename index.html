@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Real-Time Stock Screener</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Library 1: Google Charts for the Meter -->
     <script src="https://www.gstatic.com/charts/loader.js"></script>
+    <!-- Library 2: Lightweight Charts for the main chart -->
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <style>
         body { font-family: 'Roboto', sans-serif; background-color: #f0f2f5; color: #333; margin: 0; padding: 20px; box-sizing: border-box; }
@@ -83,9 +85,16 @@
     </div>
     
     <script>
-        // --- FINAL, VERIFIED JAVASCRIPT ---
+        // --- FINAL, GUARANTEED JAVASCRIPT ---
+        
+        // Global variables to hold our chart instances
+        let mainChart = null;
+        let candleSeries = null;
+
+        // An object to hold all references to our HTML elements
         const UI = {
-            loader: document.getElementById('loader'), dashboard: document.getElementById('dashboardContent'),
+            loader: document.getElementById('loader'),
+            dashboard: document.getElementById('dashboardContent'),
             stockName: document.getElementById('stockName'), stockTicker: document.getElementById('stockTicker'),
             stockPrice: document.getElementById('stockPrice'), stockChange: document.getElementById('stockChange'),
             openValue: document.getElementById('openValue'), highValue: document.getElementById('highValue'),
@@ -98,10 +107,7 @@
             chartContainer: document.getElementById('chart-container'), meterContainer: document.getElementById('meter_div'),
         };
 
-        let mainChart = null;
-        let candleSeries = null;
-        let googleChartsLoaded = false;
-
+        // Helper function to format numbers and text
         function formatVal(val, type = 'price') {
             if (val === null || val === undefined) return 'N/A';
             if (type === 'price') return `₹${Number(val).toFixed(2)}`;
@@ -115,45 +121,33 @@
             return val;
         }
 
-        function updateUI(data) {
-            UI.stockName.textContent = data.name || data.ticker.split('-')[0];
-            UI.stockTicker.textContent = data.ticker;
-            UI.stockPrice.textContent = formatVal(data.price);
-            UI.stockChange.textContent = `${formatVal(data.change, 'number')} (${formatVal(data.changePct, 'percent')})`;
-            UI.stockChange.className = data.change >= 0 ? 'change positive' : 'change negative';
-            UI.openValue.textContent = formatVal(data.open, 'price');
-            UI.highValue.textContent = formatVal(data.high, 'price');
-            UI.lowValue.textContent = formatVal(data.low, 'price');
-            UI.closeValue.textContent = formatVal(data.close, 'price');
-            UI.volumeValue.textContent = formatVal(data.volume, 'volume');
-            UI.rsiValue.textContent = formatVal(data.rsi, 'number');
-            if (data.rsi > 70) UI.rsiInterp.textContent = 'Overbought';
-            else if (data.rsi < 30) UI.rsiInterp.textContent = 'Oversold';
-            else if (data.rsi) UI.rsiInterp.textContent = 'Neutral';
-            else UI.rsiInterp.textContent = '';
-            UI.ema20Value.textContent = formatVal(data.ema20, 'price');
-            UI.ema50Value.textContent = formatVal(data.ema50, 'price');
-            UI.piotroskiValue.textContent = data.piotroskiFScore !== null ? `${data.piotroskiFScore} / 9` : 'N/A';
-            UI.grahamValue.textContent = data.grahamScanPassed !== null ? (data.grahamScanPassed ? 'Pass' : 'Fail') : 'N/A';
-            UI.grahamValue.className = data.grahamScanPassed ? 'metric-value scan-passed' : 'metric-value scan-failed';
-            UI.fiiValue.textContent = data.fiiPercentage !== null ? formatVal(data.fiiPercentage, 'percent') : 'N/A';
-            if (googleChartsLoaded) drawMeter(data.recommendation);
-            if (data.history && data.history.length > 0) createOrUpdateChart(data.history);
-        }
-
-        function createOrUpdateChart(chartData) {
-            if (!mainChart) {
-                mainChart = LightweightCharts.createChart(UI.chartContainer, { width: UI.chartContainer.clientWidth, height: UI.chartContainer.clientHeight, layout: { textColor: 'black', background: { type: 'solid', color: 'white' } }, grid: { vertLines: { color: '#f2f2f2' }, horzLines: { color: '#f2f2f2' } } });
-                // THE TYPO WAS HERE. It's addCandlestickSeries with a lowercase 's'.
-                candleSeries = mainChart.addCandlestickSeries({ upColor: '#26a69a', downColor: '#ef5350', borderDownColor: '#ef5350', borderUpColor: '#26a69a', wickDownColor: '#ef5350', wickUpColor: '#26a69a' });
-                new ResizeObserver(e => { if(e[0].contentRect.width > 0) mainChart.resize(e[0].contentRect.width, e[0].contentRect.height) }).observe(UI.chartContainer);
+        // Function to create the main candlestick chart
+        function createChart() {
+            if (mainChart) { // If a chart already exists, remove it
+                mainChart.remove();
+                mainChart = null;
             }
-            candleSeries.setData(chartData);
-            mainChart.timeScale().fitContent();
+            mainChart = LightweightCharts.createChart(UI.chartContainer, {
+                width: UI.chartContainer.clientWidth, height: UI.chartContainer.clientHeight,
+                layout: { textColor: 'black', background: { type: 'solid', color: 'white' } },
+                grid: { vertLines: { color: '#f2f2f2' }, horzLines: { color: '#f2f2f2' } }
+            });
+            candleSeries = mainChart.addCandlestickSeries({
+                upColor: '#26a69a', downColor: '#ef5350', borderDownColor: '#ef5350',
+                borderUpColor: '#26a69a', wickDownColor: '#ef5350', wickUpColor: '#26a69a'
+            });
+            new ResizeObserver(e => { if(e[0].contentRect.width > 0) mainChart.resize(e[0].contentRect.width, e[0].contentRect.height) }).observe(UI.chartContainer);
         }
 
-        function drawMeter(recommendation) { let v = 2; switch(recommendation) { case "Strong Sell": v = 0; break; case "Sell": v = 1; break; case "Neutral": v = 2; break; case "Buy": v = 3; break; case "Strong Buy": v = 4; break; } const d = google.visualization.arrayToDataTable([['Label', 'Value'], [recommendation || 'N/A', v]]); const o = { width: '100%', height: 180, redFrom: 0, redTo: 1.5, yellowFrom: 1.5, yellowTo: 2.5, greenFrom: 2.5, greenTo: 4, minorTicks: 4, min: 0, max: 4 }; new google.visualization.Gauge(UI.meterContainer).draw(d, o); }
+        // Function to draw the Google Gauge meter
+        function drawMeter(recommendation) {
+            let v = 2; switch(recommendation) { case "Strong Sell": v = 0; break; case "Sell": v = 1; break; case "Neutral": v = 2; break; case "Buy": v = 3; break; case "Strong Buy": v = 4; break; }
+            const d = google.visualization.arrayToDataTable([['Label', 'Value'], [recommendation || 'N/A', v]]);
+            const o = { width: '100%', height: 180, redFrom: 0, redTo: 1.5, yellowFrom: 1.5, yellowTo: 2.5, greenFrom: 2.5, greenTo: 4, minorTicks: 4, min: 0, max: 4 };
+            new google.visualization.Gauge(UI.meterContainer).draw(d, o);
+        }
 
+        // The main function that fetches data from our backend
         async function fetchStockData(ticker) {
             UI.searchBtn.disabled = true;
             UI.searchBtn.textContent = 'Loading...';
@@ -161,7 +155,36 @@
                 const response = await fetch(`/api/stock-data?ticker=${ticker.toUpperCase()}`);
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.details || 'API Error');
-                updateUI(data);
+                
+                // --- UPDATE UI ---
+                UI.stockName.textContent = data.name || data.ticker.split('-')[0];
+                UI.stockTicker.textContent = data.ticker;
+                UI.stockPrice.textContent = formatVal(data.price);
+                UI.stockChange.textContent = `${formatVal(data.change, 'number')} (${formatVal(data.changePct, 'percent')})`;
+                UI.stockChange.className = data.change >= 0 ? 'change positive' : 'change negative';
+                UI.openValue.textContent = formatVal(data.open, 'price');
+                UI.highValue.textContent = formatVal(data.high, 'price');
+                UI.lowValue.textContent = formatVal(data.low, 'price');
+                UI.closeValue.textContent = formatVal(data.close, 'price');
+                UI.volumeValue.textContent = formatVal(data.volume, 'volume');
+                UI.rsiValue.textContent = formatVal(data.rsi, 'number');
+                if (data.rsi > 70) UI.rsiInterp.textContent = 'Overbought';
+                else if (data.rsi < 30) UI.rsiInterp.textContent = 'Oversold';
+                else if (data.rsi) UI.rsiInterp.textContent = 'Neutral';
+                else UI.rsiInterp.textContent = '';
+                UI.ema20Value.textContent = formatVal(data.ema20, 'price');
+                UI.ema50Value.textContent = formatVal(data.ema50, 'price');
+                UI.piotroskiValue.textContent = data.piotroskiFScore !== null ? `${data.piotroskiFScore} / 9` : 'N/A';
+                UI.grahamValue.textContent = data.grahamScanPassed !== null ? (data.grahamScanPassed ? 'Pass' : 'Fail') : 'N/A';
+                UI.grahamValue.className = data.grahamScanPassed ? 'metric-value scan-passed' : 'metric-value scan-failed';
+                UI.fiiValue.textContent = data.fiiPercentage !== null ? formatVal(data.fiiPercentage, 'percent') : 'N/A';
+                
+                drawMeter(data.recommendation);
+                if (data.history && data.history.length > 0) {
+                    candleSeries.setData(data.history);
+                    mainChart.timeScale().fitContent();
+                }
+
             } catch (error) {
                 alert(`Error: ${error.message}`);
             } finally {
@@ -170,22 +193,27 @@
             }
         }
 
+        // The function that starts our application
         function initializeApp() {
             UI.loader.classList.add('hidden');
             UI.dashboard.classList.remove('hidden');
             
+            // Create the chart one time when the app starts
+            createChart();
+
+            // Set up event listeners for the search
             UI.searchBtn.addEventListener('click', () => fetchStockData(UI.tickerInput.value));
             UI.tickerInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') fetchStockData(UI.tickerInput.value); });
             
+            // Fetch the default stock data
             fetchStockData('RELIANCE');
         }
         
         // --- Main Entry Point ---
+        // This is the guaranteed way to start. It waits for the Google Charts library to be
+        // fully loaded and ready, and only then does it call our main initializeApp function.
         google.charts.load('current', { 'packages': ['gauge'] });
-        google.charts.setOnLoadCallback(() => {
-            googleChartsLoaded = true;
-            initializeApp();
-        });
+        google.charts.setOnLoadCallback(initializeApp);
     </script>
 </body>
 </html>
