@@ -14,8 +14,25 @@
         .container { display: grid; grid-template-columns: 2.5fr 1fr; gap: 20px; max-width: 1400px; margin: auto; }
         .card { background-color: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         .header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 15px; }
-        /* ... All other CSS from before ... */
-        /* NEW TABLE STYLES */
+        .stock-name { font-size: 28px; font-weight: 700; }
+        .stock-ticker { font-size: 16px; color: #666; }
+        .price-info { text-align: right; }
+        .price { font-size: 36px; font-weight: 500; }
+        .change { font-size: 18px; font-weight: 500; margin-left: 10px; }
+        .positive { color: #26a69a; }
+        .negative { color: #ef5350; }
+        .search-container { width: 100%; margin-top: 20px; display: flex; gap: 10px; }
+        .search-input { width: 100%; padding: 12px 15px; font-size: 16px; border: 1px solid #ddd; border-radius: 6px; outline: none; }
+        .search-input:focus { border-color: #4285F4; }
+        .search-button { padding: 12px 25px; font-size: 16px; font-weight: 500; background-color: #4285F4; color: white; border: none; border-radius: 6px; cursor: pointer; transition: background-color 0.2s; }
+        .search-button:hover { background-color: #357ae8; }
+        .search-button:disabled { background-color: #9e9e9e; cursor: not-allowed; }
+        .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 20px; }
+        .metric { display: flex; justify-content: space-between; align-items: center; font-size: 15px; }
+        .metric-label { color: #666; }
+        .metric-value { font-weight: 500; }
+        .loader { text-align: center; padding: 100px; font-size: 20px; font-weight: 500; color: #666; }
+        .hidden { display: none; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
         th, td { text-align: left; padding: 8px; border-bottom: 1px solid #f0f0f0; }
         th { color: #666; font-weight: 500; }
@@ -25,93 +42,132 @@
         .pivot-table th:first-child, .pivot-table td:first-child { text-align: left; font-weight: 700; }
         .indication-bearish { color: #ef5350; }
         .indication-bullish { color: #26a69a; }
-        .indication-oversold { color: #2962ff; }
-        .indication-overbought { color: #ff6d00; }
+        .indication-neutral { color: #333; }
     </style>
 </head>
 <body>
     <div id="loader" class="loader">Loading Screener...</div>
     <div id="dashboardContent" class="container hidden">
         <div class="left-column">
-            <!-- Header and Chart Cards -->
-            <div class="card"> /* ... Header card from before ... */ </div>
+            <div class="card">
+                <div class="header">
+                    <div><div id="stockName" class="stock-name">-</div><div id="stockTicker" class="stock-ticker">-</div></div>
+                    <div class="price-info"><span id="stockPrice" class="price">-</span><span id="stockChange" class="change"></span></div>
+                </div>
+                <div class="search-container"><input type="text" id="tickerInput" class="search-input" placeholder="Enter Ticker (e.g., RELIANCE)"><button id="searchBtn" class="search-button">Search</button></div>
+            </div>
             <div class="card" style="margin-top: 20px; height: 550px;"><canvas id="mainChart"></canvas></div>
-
-            <!-- NEW PIVOT LEVELS CARD -->
             <div class="card" style="margin-top: 20px;">
-                <h4>Pivot Levels (Classic)</h4>
-                <table id="pivotTable" class="pivot-table">
-                    <!-- Data will be populated by JS -->
-                </table>
+                <h4>Pivot Levels</h4><table id="pivotTable" class="pivot-table"></table>
             </div>
         </div>
         <div class="right-column">
-            <!-- Summary, Key Metrics Cards -->
-            <div class="card"><h4>Technical Summary</h4> /* ... Summary from before ... */ </div>
-            <div class="card" style="margin-top: 20px;"><h4>Key Metrics</h4> /* ... Key Metrics from before ... */ </div>
-
-            <!-- NEW DETAILED INDICATORS CARD -->
+            <div class="card"><h4>Technical Summary</h4><div id="summaryTable"></div></div>
             <div class="card" style="margin-top: 20px;">
-                <h4>Technical Indicators</h4>
-                <table id="indicatorTable" class="indicator-table">
-                    <!-- Data will be populated by JS -->
-                </table>
+                <h4>Key Metrics</h4>
+                <div class="metrics-grid">
+                    <div class="metric"><span class="metric-label">Open</span> <span id="openValue" class="metric-value">-</span></div>
+                    <div class="metric"><span class="metric-label">High</span> <span id="highValue" class="metric-value">-</span></div>
+                    <div class="metric"><span class="metric-label">Low</span> <span id="lowValue" class="metric-value">-</span></div>
+                    <div class="metric"><span class="metric-label">Prev. Close</span> <span id="closeValue" class="metric-value">-</span></div>
+                    <div class="metric"><span class="metric-label">Volume</span> <span id="volumeValue" class="metric-value">-</span></div>
+                </div>
+            </div>
+            <div class="card" style="margin-top: 20px;">
+                <h4>Technical Indicators</h4><table id="indicatorTable" class="indicator-table"></table>
             </div>
         </div>
     </div>
     
     <script>
-        const UI = { /* ... UI elements object from before ... */ };
+        const UI = {
+            loader: document.getElementById('loader'), dashboard: document.getElementById('dashboardContent'),
+            stockName: document.getElementById('stockName'), stockTicker: document.getElementById('stockTicker'),
+            stockPrice: document.getElementById('stockPrice'), stockChange: document.getElementById('stockChange'),
+            openValue: document.getElementById('openValue'), highValue: document.getElementById('highValue'),
+            lowValue: document.getElementById('lowValue'), closeValue: document.getElementById('closeValue'),
+            volumeValue: document.getElementById('volumeValue'), searchBtn: document.getElementById('searchBtn'),
+            tickerInput: document.getElementById('tickerInput'), indicatorTable: document.getElementById('indicatorTable'),
+            pivotTable: document.getElementById('pivotTable'), summaryTable: document.getElementById('summaryTable'),
+        };
+
         let mainChart = null;
 
-        // --- NEW: Function to generate the indicator table ---
-        function populateIndicatorTable(indicators) {
-            const table = document.getElementById('indicatorTable');
-            table.innerHTML = `<tr><th>Indicator</th><th>Level</th><th>Indication</th></tr>`; // Clear and set header
+        function formatVal(val, places = 2) { return (val !== null && val !== undefined) ? Number(val).toFixed(places) : 'N/A'; }
+        
+        function populateIndicatorTable(indicators, price) {
+            const table = UI.indicatorTable;
+            table.innerHTML = `<tr><th>Indicator</th><th>Level</th><th>Indication</th></tr>`;
+            const createRow = (name, val, ind, cls) => { table.insertRow().innerHTML = `<td>${name}</td><td>${formatVal(val)}</td><td class="${cls}">${ind}</td>`; };
             
-            const createRow = (name, value, indication, colorClass) => {
-                const row = table.insertRow();
-                row.innerHTML = `<td>${name}</td><td>${value}</td><td class="${colorClass}">${indication}</td>`;
-            };
+            const { rsi, macd, stochastic, roc, cci, williamsr, mfi, atr, adx, bollingerbands } = indicators;
 
-            const rsi = indicators.rsi;
-            if (rsi) createRow('RSI(14)', rsi.toFixed(2), rsi > 70 ? 'Overbought' : rsi < 30 ? 'Oversold' : 'Neutral', rsi > 70 ? 'indication-overbought' : rsi < 30 ? 'indication-oversold' : '');
-            
-            const macd = indicators.macd;
-            if (macd) createRow('MACD(12,26,9)', macd.MACD.toFixed(2), macd.MACD > macd.signal ? 'Bullish' : 'Bearish', macd.MACD > macd.signal ? 'indication-bullish' : 'indication-bearish');
-
-            // ... Add similar logic for all other indicators ...
+            if(rsi) createRow('RSI(14)', rsi, rsi > 70 ? 'Overbought' : rsi < 30 ? 'Oversold' : 'Neutral', rsi > 70 ? 'indication-bearish' : rsi < 30 ? 'indication-bullish' : 'indication-neutral');
+            if(macd) createRow('MACD(12,26,9)', macd.MACD, macd.MACD > macd.signal ? 'Bullish' : 'Bearish', macd.MACD > macd.signal ? 'indication-bullish' : 'indication-bearish');
+            if(stochastic) createRow('Stochastic(14,3)', stochastic.k, stochastic.k > 80 ? 'Overbought' : stochastic.k < 20 ? 'Oversold' : 'Neutral', stochastic.k > 80 ? 'indication-bearish' : stochastic.k < 20 ? 'indication-bullish' : 'indication-neutral');
+            if(roc) createRow('ROC(20)', roc, roc > 0 ? 'Bullish' : 'Bearish', roc > 0 ? 'indication-bullish' : 'indication-bearish');
+            if(cci) createRow('CCI(20)', cci, cci > 100 ? 'Overbought' : cci < -100 ? 'Oversold' : 'Neutral', cci > 100 ? 'indication-bearish' : cci < -100 ? 'indication-bullish' : 'indication-neutral');
+            if(williamsr) createRow('Williams %R(14)', williamsr, williamsr > -20 ? 'Overbought' : williamsr < -80 ? 'Oversold' : 'Neutral', williamsr > -20 ? 'indication-bearish' : williamsr < -80 ? 'indication-bullish' : 'indication-neutral');
+            if(mfi) createRow('MFI(14)', mfi, mfi > 80 ? 'Overbought' : mfi < 20 ? 'Oversold' : 'Neutral', mfi > 80 ? 'indication-bearish' : mfi < 20 ? 'indication-bullish' : 'indication-neutral');
+            if(atr) createRow('ATR(14)', atr, 'Volatility', 'indication-neutral');
+            if(adx) createRow('ADX(14)', adx.adx, adx.adx > 25 ? 'Strong Trend' : 'Weak Trend', 'indication-neutral');
+            if(bollingerbands) table.insertRow().innerHTML = `<td>Bollinger(20,2)</td><td colspan="2">UB: ${formatVal(bollingerbands.upper)}<br>LB: ${formatVal(bollingerbands.lower)}</td>`;
         }
 
-        // --- NEW: Function to generate the pivot table ---
         function populatePivotTable(pivots) {
-            const table = document.getElementById('pivotTable');
+            const table = UI.pivotTable;
             table.innerHTML = `<tr><th>Type</th><th>R3</th><th>R2</th><th>R1</th><th>PP</th><th>S1</th><th>S2</th><th>S3</th></tr>`;
-            
-            const createRow = (name, pivotData) => {
-                const row = table.insertRow();
-                row.innerHTML = `<td>${name}</td><td>${pivotData.r3.toFixed(2)}</td><td>${pivotData.r2.toFixed(2)}</td><td>${pivotData.r1.toFixed(2)}</td><td><b>${pivotData.pp.toFixed(2)}</b></td><td>${pivotData.s1.toFixed(2)}</td><td>${pivotData.s2.toFixed(2)}</td><td>${pivotData.s3.toFixed(2)}</td>`;
-            };
+            const createRow = (name, p) => { table.insertRow().innerHTML = `<td>${name}</td><td>${formatVal(p.r3)}</td><td>${formatVal(p.r2)}</td><td>${formatVal(p.r1)}</td><td><b>${formatVal(p.pp)}</b></td><td>${formatVal(p.s1)}</td><td>${formatVal(p.s2)}</td><td>${formatVal(p.s3)}</td>`; };
             if(pivots.classic) createRow('Classic', pivots.classic);
             if(pivots.fibonacci) createRow('Fibonacci', pivots.fibonacci);
             if(pivots.camarilla) createRow('Camarilla', pivots.camarilla);
         }
 
         function updateUI(data) {
-            // ... all previous UI updates ...
-            if (data.indicators) populateIndicatorTable(data.indicators);
+            UI.stockName.textContent = data.name; UI.stockTicker.textContent = data.ticker;
+            UI.stockPrice.textContent = `₹${formatVal(data.price)}`;
+            UI.stockChange.textContent = `${formatVal(data.change)} (${formatVal(data.changePct)}%)`;
+            UI.stockChange.className = data.change >= 0 ? 'change positive' : 'change negative';
+            UI.openValue.textContent = formatVal(data.open); UI.highValue.textContent = formatVal(data.high);
+            UI.lowValue.textContent = formatVal(data.low); UI.closeValue.textContent = formatVal(data.close);
+            UI.volumeValue.textContent = `${(data.volume / 10000000).toFixed(2)} Cr`;
+            
+            if (data.indicators) populateIndicatorTable(data.indicators, data.price);
             if (data.pivots) populatePivotTable(data.pivots);
-            // ... chart, meter, etc. ...
+            
+            const chartData = data.history.map(d => ({ x: new Date(d.time).getTime(), o: d.open, h: d.high, l: d.low, c: d.close }));
+            mainChart.data.datasets[0].data = chartData;
+            mainChart.update();
+        }
+        
+        async function fetchStockData(ticker) {
+            UI.searchBtn.disabled = true; UI.searchBtn.textContent = 'Loading...';
+            try {
+                const response = await fetch(`/api/stock-data?ticker=${ticker.toUpperCase()}`);
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.details || 'API Error');
+                updateUI(data);
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            } finally {
+                UI.searchBtn.disabled = false; UI.searchBtn.textContent = 'Search';
+            }
         }
 
-        // The rest of the script (initializeApp, fetchStockData, etc.) remains the same.
-        // I am including the full script below for guaranteed correctness.
-    </script>
-    <script>
-        // --- FINAL, GUARANTEED JAVASCRIPT ---
-        // ... (Paste the entire, final, correct <script> block from the last working version,
-        //      but replace the updateUI function with the new one above, and add the two
-        //      new populate...Table functions.) ...
+        function initializeApp() {
+            UI.loader.classList.add('hidden');
+            UI.dashboard.classList.remove('hidden');
+            
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            mainChart = new Chart(ctx, { type: 'candlestick', data: { datasets: [{ data: [] }] }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { type: 'time', time: { unit: 'day' } } } } });
+            
+            UI.searchBtn.addEventListener('click', () => fetchStockData(UI.tickerInput.value));
+            UI.tickerInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') fetchStockData(UI.tickerInput.value); });
+            
+            fetchStockData('RELIANCE');
+        }
+        
+        initializeApp();
     </script>
 </body>
 </html>
