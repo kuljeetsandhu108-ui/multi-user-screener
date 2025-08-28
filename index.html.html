@@ -6,8 +6,9 @@
     <title>Real-Time Stock Screener</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/charts/loader.js"></script>
-    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <!-- We no longer need the Lightweight Charts library -->
     <style>
+        /* All CSS remains the same */
         body { font-family: 'Roboto', sans-serif; background-color: #f0f2f5; color: #333; margin: 0; padding: 20px; box-sizing: border-box; }
         .container { display: grid; grid-template-columns: 2.5fr 1fr; gap: 20px; max-width: 1400px; margin: auto; }
         .card { background-color: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
@@ -48,7 +49,10 @@
                 </div>
                 <div class="search-container"><input type="text" id="tickerInput" class="search-input" placeholder="Enter Ticker (e.g., RELIANCE)"><button id="searchBtn" class="search-button">Search</button></div>
             </div>
-            <div class="card" style="margin-top: 20px; height: 550px; padding: 0;"><div id="chart-container" style="height: 100%; width: 100%;"></div></div>
+            <!-- The Chart Card -->
+            <div class="card" style="margin-top: 20px; height: 550px;">
+                <div id="tradingview-widget-container" style="height: 100%; width: 100%;"></div>
+            </div>
         </div>
         <div class="right-column">
             <div class="card"><h4>Technical Summary</h4><div id="meter_div"></div></div>
@@ -83,7 +87,7 @@
     </div>
     
     <script>
-        // --- FINAL, VERIFIED JAVASCRIPT ---
+        // --- FINAL, SIMPLIFIED JAVASCRIPT using the TradingView Widget ---
         const UI = {
             loader: document.getElementById('loader'), dashboard: document.getElementById('dashboardContent'),
             stockName: document.getElementById('stockName'), stockTicker: document.getElementById('stockTicker'),
@@ -95,64 +99,40 @@
             ema50Value: document.getElementById('ema50Value'), piotroskiValue: document.getElementById('piotroskiValue'),
             grahamValue: document.getElementById('grahamValue'), fiiValue: document.getElementById('fiiValue'),
             searchBtn: document.getElementById('searchBtn'), tickerInput: document.getElementById('tickerInput'),
-            chartContainer: document.getElementById('chart-container'), meterContainer: document.getElementById('meter_div'),
+            meterContainer: document.getElementById('meter_div'),
         };
 
-        let mainChart = null;
-        let candleSeries = null;
         let googleChartsLoaded = false;
 
-        function formatVal(val, type = 'price') {
-            if (val === null || val === undefined) return 'N/A';
-            if (type === 'price') return `₹${Number(val).toFixed(2)}`;
-            if (type === 'percent') return `${Number(val).toFixed(2)}%`;
-            if (type === 'number') return Number(val).toFixed(2);
-            if (type === 'volume') {
-                if (val >= 10000000) return `${(val / 10000000).toFixed(2)} Cr`;
-                if (val >= 100000) return `${(val / 100000).toFixed(2)} Lac`;
-                return val.toString();
-            }
-            return val;
-        }
+        function formatVal(val, type = 'price') { /* ... same as before ... */ }
+        function updateUI(data) { /* ... same as before, but without chart logic ... */ }
+        function drawMeter(recommendation) { /* ... same as before ... */ }
 
-        function updateUI(data) {
-            UI.stockName.textContent = data.name || data.ticker.split('-')[0];
-            UI.stockTicker.textContent = data.ticker;
-            UI.stockPrice.textContent = formatVal(data.price);
-            UI.stockChange.textContent = `${formatVal(data.change, 'number')} (${formatVal(data.changePct, 'percent')})`;
-            UI.stockChange.className = data.change >= 0 ? 'change positive' : 'change negative';
-            UI.openValue.textContent = formatVal(data.open, 'price');
-            UI.highValue.textContent = formatVal(data.high, 'price');
-            UI.lowValue.textContent = formatVal(data.low, 'price');
-            UI.closeValue.textContent = formatVal(data.close, 'price');
-            UI.volumeValue.textContent = formatVal(data.volume, 'volume');
-            UI.rsiValue.textContent = formatVal(data.rsi, 'number');
-            if (data.rsi > 70) UI.rsiInterp.textContent = 'Overbought';
-            else if (data.rsi < 30) UI.rsiInterp.textContent = 'Oversold';
-            else if (data.rsi) UI.rsiInterp.textContent = 'Neutral';
-            else UI.rsiInterp.textContent = '';
-            UI.ema20Value.textContent = formatVal(data.ema20, 'price');
-            UI.ema50Value.textContent = formatVal(data.ema50, 'price');
-            UI.piotroskiValue.textContent = data.piotroskiFScore !== null ? `${data.piotroskiFScore} / 9` : 'N/A';
-            UI.grahamValue.textContent = data.grahamScanPassed !== null ? (data.grahamScanPassed ? 'Pass' : 'Fail') : 'N/A';
-            UI.grahamValue.className = data.grahamScanPassed ? 'metric-value scan-passed' : 'metric-value scan-failed';
-            UI.fiiValue.textContent = data.fiiPercentage !== null ? formatVal(data.fiiPercentage, 'percent') : 'N/A';
-            if (googleChartsLoaded) drawMeter(data.recommendation);
-            if (candleSeries && data.history && data.history.length > 0) {
-                candleSeries.setData(data.history);
-                mainChart.timeScale().fitContent();
-            }
-        }
+        // --- THE NEW, SIMPLE WIDGET FUNCTION ---
+        function loadTradingViewWidget(ticker) { // e.g., ticker is "RELIANCE-EQ-NSE"
+            const container = document.getElementById('tradingview-widget-container');
+            if (!container) return;
+            container.innerHTML = ''; // Clear previous widget
+            
+            // Format the ticker for TradingView (e.g., NSE:RELIANCE)
+            const parts = ticker.split('-');
+            const baseSymbol = parts[0];
+            const exchange = parts[parts.length - 1];
+            const tradingViewSymbol = `${exchange}:${baseSymbol}`;
 
-        function createChart() {
-            if (mainChart) { mainChart.remove(); mainChart = null; }
-            mainChart = LightweightCharts.createChart(UI.chartContainer, { width: UI.chartContainer.clientWidth, height: UI.chartContainer.clientHeight, layout: { textColor: 'black', background: { type: 'solid', color: 'white' } }, grid: { vertLines: { color: '#f2f2f2' }, horzLines: { color: '#f2f2f2' } } });
-            // THE DEFINITIVE FIX IS HERE. I have corrected the typo.
-            candleSeries = mainChart.addCandlestickSeries({ upColor: '#26a69a', downColor: '#ef5350', borderDownColor: '#ef5350', borderUpColor: '#26a69a', wickDownColor: '#ef5350', wickUpColor: '#26a69a' });
-            new ResizeObserver(e => { if(e[0].contentRect.width > 0) mainChart.resize(e[0].contentRect.width, e[0].contentRect.height) }).observe(UI.chartContainer);
+            new TradingView.widget({
+                "autosize": true,
+                "symbol": tradingViewSymbol,
+                "interval": "D",
+                "timezone": "Asia/Kolkata",
+                "theme": "light",
+                "style": "1",
+                "locale": "en",
+                "enable_publishing": false,
+                "allow_symbol_change": true,
+                "container_id": "tradingview-widget-container"
+            });
         }
-
-        function drawMeter(recommendation) { let v = 2; switch(recommendation) { case "Strong Sell": v = 0; break; case "Sell": v = 1; break; case "Neutral": v = 2; break; case "Buy": v = 3; break; case "Strong Buy": v = 4; break; } const d = google.visualization.arrayToDataTable([['Label', 'Value'], [recommendation || 'N/A', v]]); const o = { width: '100%', height: 180, redFrom: 0, redTo: 1.5, yellowFrom: 1.5, yellowTo: 2.5, greenFrom: 2.5, greenTo: 4, minorTicks: 4, min: 0, max: 4 }; new google.visualization.Gauge(UI.meterContainer).draw(d, o); }
 
         async function fetchStockData(ticker) {
             UI.searchBtn.disabled = true;
@@ -161,7 +141,12 @@
                 const response = await fetch(`/api/stock-data?ticker=${ticker.toUpperCase()}`);
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.details || 'API Error');
+                
+                // Update all the text and meter data
                 updateUI(data);
+                // Load the chart widget with the new ticker
+                loadTradingViewWidget(data.ticker);
+
             } catch (error) {
                 alert(`Error: ${error.message}`);
             } finally {
@@ -173,18 +158,28 @@
         function initializeApp() {
             UI.loader.classList.add('hidden');
             UI.dashboard.classList.remove('hidden');
-            
-            createChart(); // Create the chart structure once the app is ready
-
             UI.searchBtn.addEventListener('click', () => fetchStockData(UI.tickerInput.value));
             UI.tickerInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') fetchStockData(UI.tickerInput.value); });
             
+            // Load a default stock on startup
             fetchStockData('RELIANCE');
         }
-        
+
         // --- Main Entry Point ---
         google.charts.load('current', { 'packages': ['gauge'] });
-        google.charts.setOnLoadCallback(initializeApp);
+        google.charts.setOnLoadCallback(() => {
+            googleChartsLoaded = true;
+            // The TradingView widget has its own separate script, so we don't need to wait for it.
+            // We just need to ensure the Google Chart for the meter is ready.
+            initializeApp();
+        });
+
+        // --- Full Helper Functions for copy-pasting ---
+        function formatVal(val, type = 'price') { if (val === null || val === undefined) return 'N/A'; if (type === 'price') return `₹${Number(val).toFixed(2)}`; if (type === 'percent') return `${Number(val).toFixed(2)}%`; if (type === 'number') return Number(val).toFixed(2); if (type === 'volume') { if (val >= 10000000) return `${(val / 10000000).toFixed(2)} Cr`; if (val >= 100000) return `${(val / 100000).toFixed(2)} Lac`; return val.toString(); } return val; }
+        function updateUI(data) { UI.stockName.textContent = data.name || data.ticker.split('-')[0]; UI.stockTicker.textContent = data.ticker; UI.stockPrice.textContent = formatVal(data.price); UI.stockChange.textContent = `${formatVal(data.change, 'number')} (${formatVal(data.changePct, 'percent')})`; UI.stockChange.className = data.change >= 0 ? 'change positive' : 'change negative'; UI.openValue.textContent = formatVal(data.open, 'price'); UI.highValue.textContent = formatVal(data.high, 'price'); UI.lowValue.textContent = formatVal(data.low, 'price'); UI.closeValue.textContent = formatVal(data.close, 'price'); UI.volumeValue.textContent = formatVal(data.volume, 'volume'); UI.rsiValue.textContent = formatVal(data.rsi, 'number'); if (data.rsi > 70) UI.rsiInterp.textContent = 'Overbought'; else if (data.rsi < 30) UI.rsiInterp.textContent = 'Oversold'; else if (data.rsi) UI.rsiInterp.textContent = 'Neutral'; else UI.rsiInterp.textContent = ''; UI.ema20Value.textContent = formatVal(data.ema20, 'price'); UI.ema50Value.textContent = formatVal(data.ema50, 'price'); UI.piotroskiValue.textContent = data.piotroskiFScore !== null ? `${data.piotroskiFScore} / 9` : 'N/A'; UI.grahamValue.textContent = data.grahamScanPassed !== null ? (data.grahamScanPassed ? 'Pass' : 'Fail') : 'N/A'; UI.grahamValue.className = data.grahamScanPassed ? 'metric-value scan-passed' : 'metric-value scan-failed'; UI.fiiValue.textContent = data.fiiPercentage !== null ? formatVal(data.fiiPercentage, 'percent') : 'N/A'; if (googleChartsLoaded) drawMeter(data.recommendation); }
+        function drawMeter(recommendation) { let v = 2; switch(recommendation) { case "Strong Sell": v = 0; break; case "Sell": v = 1; break; case "Neutral": v = 2; break; case "Buy": v = 3; break; case "Strong Buy": v = 4; break; } const d = google.visualization.arrayToDataTable([['Label', 'Value'], [recommendation || 'N/A', v]]); const o = { width: '100%', height: 180, redFrom: 0, redTo: 1.5, yellowFrom: 1.5, yellowTo: 2.5, greenFrom: 2.5, greenTo: 4, minorTicks: 4, min: 0, max: 4 }; new google.visualization.Gauge(UI.meterContainer).draw(d, o); }
     </script>
+    <!-- The TradingView library that powers the widget -->
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
 </body>
 </html>
