@@ -5,9 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Real-Time Stock Screener</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-    <!-- Library 1: Google Charts for the Meter -->
-    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
-    <!-- Library 2: Lightweight Charts for the main chart -->
+    <script src="https://www.gstatic.com/charts/loader.js"></script>
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <style>
         body { font-family: 'Roboto', sans-serif; background-color: #f0f2f5; color: #333; margin: 0; padding: 20px; box-sizing: border-box; }
@@ -34,14 +32,9 @@
         .loader { text-align: center; padding: 100px; font-size: 20px; font-weight: 500; color: #666; }
         .hidden { display: none; }
         #meter_div { width: 100%; height: 180px; }
-        .rsi-oversold { color: #2e7d32; font-weight: 700; }
-        .rsi-overbought { color: #c62828; font-weight: 700; }
-        .rsi-neutral { color: #333; }
         .interpretation { font-size: 12px; font-style: italic; text-align: right; }
         .scan-passed { color: #2e7d32; font-weight: 700; }
         .scan-failed { color: #c62828; font-weight: 700; }
-        .piotroski-strong { color: #2e7d32; }
-        .piotroski-weak { color: #c62828; }
     </style>
 </head>
 <body>
@@ -90,107 +83,125 @@
     </div>
     
     <script>
-        // Global variable for the main chart
-        let candleStickSeries = null;
+        // --- CLEANED AND REWRITTEN JAVASCRIPT ---
+        const UI = { // An object to hold all our UI elements
+            loader: document.getElementById('loader'),
+            dashboard: document.getElementById('dashboardContent'),
+            stockName: document.getElementById('stockName'),
+            stockTicker: document.getElementById('stockTicker'),
+            stockPrice: document.getElementById('stockPrice'),
+            stockChange: document.getElementById('stockChange'),
+            openValue: document.getElementById('openValue'),
+            highValue: document.getElementById('highValue'),
+            lowValue: document.getElementById('lowValue'),
+            closeValue: document.getElementById('closeValue'),
+            volumeValue: document.getElementById('volumeValue'),
+            rsiValue: document.getElementById('rsiValue'),
+            rsiInterp: document.getElementById('rsiInterp'),
+            ema20Value: document.getElementById('ema20Value'),
+            ema50Value: document.getElementById('ema50Value'),
+            piotroskiValue: document.getElementById('piotroskiValue'),
+            grahamValue: document.getElementById('grahamValue'),
+            fiiValue: document.getElementById('fiiValue'),
+            searchBtn: document.getElementById('searchBtn'),
+            tickerInput: document.getElementById('tickerInput'),
+            chartContainer: document.getElementById('chart-container'),
+            meterContainer: document.getElementById('meter_div'),
+        };
 
-        // --- All Helper Functions Defined First ---
-        function formatVolume(num) { if (!num || isNaN(num)) return '-'; if (num >= 10000000) return (num / 10000000).toFixed(2) + ' Cr'; if (num >= 100000) return (num / 100000).toFixed(2) + ' Lac'; if (num >= 1000) return (num / 1000).toFixed(2) + ' K'; return num.toString(); }
-        function drawMeter(recommendation) { if (typeof google === 'undefined' || !google.visualization) return; let meterValue = 2; switch(recommendation) { case "Strong Sell": meterValue = 0; break; case "Sell": meterValue = 1; break; case "Neutral": meterValue = 2; break; case "Buy": meterValue = 3; break; case "Strong Buy": meterValue = 4; break; } const data = google.visualization.arrayToDataTable([['Label', 'Value'], [recommendation, meterValue]]); const options = { width: '100%', height: 180, redFrom: 0, redTo: 1.5, yellowFrom: 1.5, yellowTo: 2.5, greenFrom: 2.5, greenTo: 4, minorTicks: 4, min: 0, max: 4, animation: { duration: 500, easing: 'out' } }; const chart = new google.visualization.Gauge(document.getElementById('meter_div')); chart.draw(data, options); }
-        function createOrUpdateChart(chartData) {
-            const chartContainer = document.getElementById('chart-container');
-            if (!chartContainer) return;
+        let mainChart = null; // Global variables for charts
+        let candleSeries = null;
+        let googleChartsLoaded = false;
 
-            if (!candleStickSeries) { // If chart doesn't exist, create it
-                chartContainer.innerHTML = '';
-                const chart = LightweightCharts.createChart(chartContainer, {
-                    width: chartContainer.clientWidth, height: chartContainer.clientHeight,
-                    layout: { textColor: 'black', background: { type: 'solid', color: 'white' } },
-                    grid: { vertLines: { color: '#f2f2f2' }, horzLines: { color: '#f2f2f2' } },
-                    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-                });
-                candleStickSeries = chart.addCandlestickSeries({
-                    upColor: '#26a69a', downColor: '#ef5350', borderDownColor: '#ef5350',
-                    borderUpColor: '#26a69a', wickDownColor: '#ef5350', wickUpColor: '#26a69a',
-                });
-                chart.timeScale().fitContent();
-                new ResizeObserver(entries => {
-                    if (entries.length > 0 && entries[0].contentRect.width > 0) {
-                        chart.applyOptions({ width: entries[0].contentRect.width });
-                    }
-                }).observe(chartContainer);
+        function formatVal(val, type = 'price') {
+            if (val === null || val === undefined) return 'N/A';
+            if (type === 'price') return `₹${val.toFixed(2)}`;
+            if (type === 'percent') return `${val.toFixed(2)}%`;
+            if (type === 'number') return val.toFixed(2);
+            if (type === 'volume') {
+                if (val >= 10000000) return `${(val / 10000000).toFixed(2)} Cr`;
+                if (val >= 100000) return `${(val / 100000).toFixed(2)} Lac`;
+                return val.toString();
             }
-            candleStickSeries.setData(chartData); // Set or update the data
+            return val;
         }
 
-        function updateAllUI(data) {
-            // Update Header & Key Metrics
-            document.getElementById('stockName').textContent = data.name || data.ticker.split('-')[0];
-            document.getElementById('stockTicker').textContent = data.ticker;
-            document.getElementById('stockPrice').textContent = data.price ? `₹${data.price.toFixed(2)}` : '-';
-            const changeElement = document.getElementById('stockChange');
-            if (data.change !== undefined && data.changePct !== undefined) { const changeText = `${data.change.toFixed(2)} (${data.changePct.toFixed(2)}%)`; changeElement.textContent = changeText; changeElement.className = data.change >= 0 ? 'change positive' : 'change negative'; } else { changeElement.textContent = ''; }
-            document.getElementById('openValue').textContent = data.open ? data.open.toFixed(2) : '-'; document.getElementById('highValue').textContent = data.high ? data.high.toFixed(2) : '-'; document.getElementById('lowValue').textContent = data.low ? data.low.toFixed(2) : '-'; document.getElementById('closeValue').textContent = data.close ? data.close.toFixed(2) : '-'; document.getElementById('volumeValue').textContent = formatVolume(data.volume);
+        function updateUI(data) {
+            UI.stockName.textContent = data.name || data.ticker.split('-')[0];
+            UI.stockTicker.textContent = data.ticker;
+            UI.stockPrice.textContent = formatVal(data.price);
             
-            // Update Indicators
-            const rsiValueEl = document.getElementById('rsiValue'); const rsiInterpEl = document.getElementById('rsiInterp');
-            if (data.rsi !== null) { rsiValueEl.textContent = data.rsi.toFixed(2); if (data.rsi > 70) { rsiValueEl.className = 'metric-value rsi-overbought'; rsiInterpEl.textContent = 'Overbought'; } else if (data.rsi < 30) { rsiValueEl.className = 'metric-value rsi-oversold'; rsiInterpEl.textContent = 'Oversold'; } else { rsiValueEl.className = 'metric-value rsi-neutral'; rsiInterpEl.textContent = 'Neutral'; } } else { rsiValueEl.textContent = 'N/A'; rsiInterpEl.textContent = ''; }
-            document.getElementById('ema20Value').textContent = data.ema20 ? data.ema20.toFixed(2) : 'N/A'; document.getElementById('ema50Value').textContent = data.ema50 ? data.ema50.toFixed(2) : 'N/A';
+            const changeText = `${formatVal(data.change, 'number')} (${formatVal(data.changePct, 'percent')})`;
+            UI.stockChange.textContent = changeText;
+            UI.stockChange.className = data.change >= 0 ? 'change positive' : 'change negative';
             
-            // Update Meter & Scans
-            drawMeter(data.recommendation);
-            const piotroskiEl = document.getElementById('piotroskiValue'); if (data.piotroskiFScore !== null) { piotroskiEl.textContent = `${data.piotroskiFScore} / 9`; if (data.piotroskiFScore >= 7) { piotroskiEl.className = 'metric-value piotroski-strong'; } else if (data.piotroskiFScore <= 3) { piotroskiEl.className = 'metric-value piotroski-weak'; } else { piotroskiEl.className = 'metric-value'; } } else { piotroskiEl.textContent = 'N/A'; }
-            const grahamEl = document.getElementById('grahamValue'); if (data.grahamScanPassed !== null) { grahamEl.textContent = data.grahamScanPassed ? 'Pass' : 'Fail'; grahamEl.className = data.grahamScanPassed ? 'metric-value scan-passed' : 'metric-value scan-failed'; } else { grahamEl.textContent = 'N/A'; }
-            const fiiEl = document.getElementById('fiiValue'); if (data.fiiPercentage !== null) { fiiEl.textContent = `${(data.fiiPercentage).toFixed(2)} %`; } else { fiiEl.textContent = 'N/A'; }
+            UI.openValue.textContent = formatVal(data.open, 'price');
+            UI.highValue.textContent = formatVal(data.high, 'price');
+            UI.lowValue.textContent = formatVal(data.low, 'price');
+            UI.closeValue.textContent = formatVal(data.close, 'price');
+            UI.volumeValue.textContent = formatVal(data.volume, 'volume');
+
+            UI.rsiValue.textContent = formatVal(data.rsi, 'number');
+            if(data.rsi > 70) UI.rsiInterp.textContent = 'Overbought';
+            else if(data.rsi < 30) UI.rsiInterp.textContent = 'Oversold';
+            else UI.rsiInterp.textContent = 'Neutral';
+
+            UI.ema20Value.textContent = formatVal(data.ema20, 'price');
+            UI.ema50Value.textContent = formatVal(data.ema50, 'price');
             
-            // Update Chart
-            if (data.history && data.history.length > 0) { createOrUpdateChart(data.history); }
+            UI.piotroskiValue.textContent = data.piotroskiFScore !== null ? `${data.piotroskiFScore} / 9` : 'N/A';
+            UI.grahamValue.textContent = data.grahamScanPassed !== null ? (data.grahamScanPassed ? 'Pass' : 'Fail') : 'N/A';
+            UI.grahamValue.className = data.grahamScanPassed ? 'metric-value scan-passed' : 'metric-value scan-failed';
+            UI.fiiValue.textContent = data.fiiPercentage !== null ? formatVal(data.fiiPercentage, 'percent') : 'N/A';
+            
+            if (googleChartsLoaded) drawMeter(data.recommendation);
+            if (data.history && data.history.length > 0) createOrUpdateChart(data.history);
         }
+        
+        function createOrUpdateChart(chartData) {
+            if (!mainChart) {
+                mainChart = LightweightCharts.createChart(UI.chartContainer, { width: UI.chartContainer.clientWidth, height: UI.chartContainer.clientHeight, layout: { textColor: 'black', background: { type: 'solid', color: 'white' } }, grid: { vertLines: { color: '#f2f2f2' }, horzLines: { color: '#f2f2f2' } } });
+                candleSeries = mainChart.addCandlestickSeries({ upColor: '#26a69a', downColor: '#ef5350', borderDownColor: '#ef5350', borderUpColor: '#26a69a', wickDownColor: '#ef5350', wickUpColor: '#26a69a' });
+                new ResizeObserver(e => mainChart.resize(e[0].contentRect.width, e[0].contentRect.height)).observe(UI.chartContainer);
+            }
+            candleSeries.setData(chartData);
+            mainChart.timeScale().fitContent();
+        }
+        
+        function drawMeter(recommendation) { let v = 2; switch(recommendation) { case "Strong Sell": v = 0; break; case "Sell": v = 1; break; case "Neutral": v = 2; break; case "Buy": v = 3; break; case "Strong Buy": v = 4; break; } const d = google.visualization.arrayToDataTable([['Label', 'Value'], [recommendation, v]]); const o = { width: '100%', height: 180, redFrom: 0, redTo: 1.5, yellowFrom: 1.5, yellowTo: 2.5, greenFrom: 2.5, greenTo: 4, minorTicks: 4, min: 0, max: 4 }; new google.visualization.Gauge(UI.meterContainer).draw(d, o); }
 
-        async function searchStock(ticker) {
-            const searchButton = document.getElementById('searchBtn');
-            const isFirstLoad = document.getElementById('dashboardContent').classList.contains('hidden');
-
-            if (!ticker) { alert('Please enter a stock ticker.'); return; }
-            searchButton.disabled = true;
-            searchButton.textContent = 'Loading...';
-            
+        async function fetchStockData(ticker) {
+            UI.searchBtn.disabled = true;
+            UI.searchBtn.textContent = 'Loading...';
             try {
-                const apiUrl = `/api/stock-data?ticker=${ticker.toUpperCase()}`;
-                const response = await fetch(apiUrl);
+                const response = await fetch(`/api/stock-data?ticker=${ticker.toUpperCase()}`);
                 const data = await response.json();
-                if (!response.ok || data.error) {
-                    throw new Error(data.details || 'Stock not found or API error.');
-                }
-                updateAllUI(data); // Call the single function to update everything
-                
-                if (isFirstLoad) {
-                    document.getElementById('loader').classList.add('hidden');
-                    document.getElementById('dashboardContent').classList.remove('hidden');
-                }
+                if (!response.ok) throw new Error(data.details || 'API Error');
+                updateUI(data);
             } catch (error) {
                 alert(`Error: ${error.message}`);
-                if (isFirstLoad) {
-                    document.getElementById('loader').classList.add('hidden');
-                    document.getElementById('dashboardContent').classList.remove('hidden');
-                }
             } finally {
-                searchButton.disabled = false;
-                searchButton.textContent = 'Search';
+                UI.searchBtn.disabled = false;
+                UI.searchBtn.textContent = 'Search';
             }
         }
 
-        // --- Main Application Entry Point ---
-        function runApplication() {
-            const searchButton = document.getElementById('searchBtn');
-            const tickerInput = document.getElementById('tickerInput');
-            searchButton.addEventListener('click', () => { searchStock(tickerInput.value); });
-            tickerInput.addEventListener('keypress', (event) => { if (event.key === 'Enter') { searchStock(tickerInput.value); } });
-            searchStock('RELIANCE');
+        function initialize() {
+            UI.loader.classList.add('hidden');
+            UI.dashboard.classList.remove('hidden');
+            
+            UI.searchBtn.addEventListener('click', () => fetchStockData(UI.tickerInput.value));
+            UI.tickerInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') fetchStockData(UI.tickerInput.value); });
+            
+            fetchStockData('RELIANCE');
         }
-
-        // Load Google Charts, and once it's ready, run our main application function
-        google.charts.load('current', {'packages':['gauge']});
-        google.charts.setOnLoadCallback(runApplication);
+        
+        // --- Main Entry Point ---
+        google.charts.load('current', { 'packages': ['gauge'] });
+        google.charts.setOnLoadCallback(() => {
+            googleChartsLoaded = true;
+            initialize(); // Run the main app
+        });
     </script>
 </body>
 </html>
