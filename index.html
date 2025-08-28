@@ -7,7 +7,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
     <style>
-        /* All CSS from before, plus styles for the new card */
         body { font-family: 'Roboto', sans-serif; background-color: #f0f2f5; color: #333; margin: 0; padding: 20px; }
         .container { display: grid; grid-template-columns: 2.5fr 1fr; gap: 20px; max-width: 1400px; margin: auto; }
         .card { background-color: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
@@ -36,7 +35,6 @@
         .rsi-overbought { color: #c62828; font-weight: 700; }
         .rsi-neutral { color: #333; }
         .interpretation { font-size: 12px; font-style: italic; text-align: right; }
-        /* NEW Styles for scan results */
         .scan-passed { color: #2e7d32; font-weight: 700; }
         .scan-failed { color: #c62828; font-weight: 700; }
         .piotroski-strong { color: #2e7d32; }
@@ -46,37 +44,50 @@
 <body>
     <div id="loader" class="loader">Loading Screener...</div>
     <div id="dashboardContent" class="container hidden">
-        <div class="left-column"> /* ... Header and Chart Cards ... */ </div>
+        <div class="left-column">
+            <div class="card">
+                <div class="header">
+                    <div><div id="stockName" class="stock-name">-</div><div id="stockTicker" class="stock-ticker">-</div></div>
+                    <div class="price-info"><span id="stockPrice" class="price">-</span><span id="stockChange" class="change"></span></div>
+                </div>
+                <div class="search-container"><input type="text" id="tickerInput" class="search-input" placeholder="Enter Ticker (e.g., RELIANCE)"><button id="searchBtn" class="search-button">Search</button></div>
+            </div>
+            <div class="card" style="margin-top: 20px; height: 550px;"><div id="tradingview-widget-container" style="height: 100%; width: 100%;"></div></div>
+        </div>
         <div class="right-column">
             <div class="card"><h4>Technical Summary</h4><div id="meter_div"></div></div>
-            <div class="card" style="margin-top: 20px;"><h4>Key Metrics</h4> /* ... Key Metrics Grid ... */ </div>
-            <div class="card" style="margin-top: 20px;"><h4>Technical Indicators</h4> /* ... Indicators Grid ... */ </div>
-            
-            <!-- NEW FUNDAMENTAL SCANS CARD -->
+            <div class="card" style="margin-top: 20px;">
+                <h4>Key Metrics</h4>
+                <div class="metrics-grid">
+                    <div class="metric"><span class="metric-label">Open</span> <span id="openValue" class="metric-value">-</span></div>
+                    <div class="metric"><span class="metric-label">High</span> <span id="highValue" class="metric-value">-</span></div>
+                    <div class="metric"><span class="metric-label">Low</span> <span id="lowValue" class="metric-value">-</span></div>
+                    <div class="metric"><span class="metric-label">Prev. Close</span> <span id="closeValue" class="metric-value">-</span></div>
+                    <div class="metric"><span class="metric-label">Volume</span> <span id="volumeValue" class="metric-value">-</span></div>
+                </div>
+            </div>
+            <div class="card" style="margin-top: 20px;">
+                <h4>Technical Indicators</h4>
+                <div class="metrics-grid">
+                    <div class="metric"><span class="metric-label">RSI (14)</span> <span id="rsiValue" class="metric-value">-</span></div>
+                    <div class="metric"><span></span> <span id="rsiInterp" class="interpretation"></span></div>
+                    <div class="metric"><span class="metric-label">EMA (20)</span> <span id="ema20Value" class="metric-value">-</span></div>
+                    <div class="metric"><span class="metric-label">EMA (50)</span> <span id="ema50Value" class="metric-value">-</span></div>
+                </div>
+            </div>
             <div class="card" style="margin-top: 20px;">
                 <h4>Fundamental Scans</h4>
-                <div class="metrics-grid" style="grid-template-columns: 1fr;"> <!-- Single column layout -->
-                    <div class="metric">
-                        <span class="metric-label">Piotroski F-Score</span>
-                        <span id="piotroskiValue" class="metric-value">- / 9</span>
-                    </div>
-                    <div class="metric">
-                        <span class="metric-label">Graham Scan</span>
-                        <span id="grahamValue" class="metric-value">-</span>
-                    </div>
-                     <div class="metric">
-                        <span class="metric-label">FII Shareholding</span>
-                        <span id="fiiValue" class="metric-value">- %</span>
-                    </div>
+                <div class="metrics-grid" style="grid-template-columns: 1fr;">
+                    <div class="metric"><span class="metric-label">Piotroski F-Score</span><span id="piotroskiValue" class="metric-value">- / 9</span></div>
+                    <div class="metric"><span class="metric-label">Graham Scan</span><span id="grahamValue" class="metric-value">-</span></div>
+                     <div class="metric"><span class="metric-label">FII Shareholding</span><span id="fiiValue" class="metric-value">- %</span></div>
                 </div>
             </div>
         </div>
     </div>
     
     <script>
-        // --- THIS IS THE UPGRADED updateDashboard FUNCTION ---
         function updateDashboard(data) {
-            // Update Header and Key Metrics (as before)
             document.getElementById('stockName').textContent = data.name || data.ticker.split('-')[0];
             document.getElementById('stockTicker').textContent = data.ticker;
             document.getElementById('stockPrice').textContent = data.price ? `₹${data.price.toFixed(2)}` : '-';
@@ -92,7 +103,6 @@
             document.getElementById('closeValue').textContent = data.close ? data.close.toFixed(2) : '-';
             document.getElementById('volumeValue').textContent = formatVolume(data.volume);
 
-            // Update Technical Indicators (as before)
             const rsiValueEl = document.getElementById('rsiValue');
             const rsiInterpEl = document.getElementById('rsiInterp');
             if (data.rsi) {
@@ -106,36 +116,34 @@
             
             drawMeter(data.recommendation);
 
-            // --- NEW: Update Fundamental Scans Card ---
             const piotroskiEl = document.getElementById('piotroskiValue');
             if (data.piotroskiFScore !== null) {
                 piotroskiEl.textContent = `${data.piotroskiFScore} / 9`;
                 if (data.piotroskiFScore >= 7) { piotroskiEl.className = 'metric-value piotroski-strong'; }
                 else if (data.piotroskiFScore <= 3) { piotroskiEl.className = 'metric-value piotroski-weak'; }
                 else { piotroskiEl.className = 'metric-value'; }
-            } else {
-                piotroskiEl.textContent = 'N/A';
-            }
+            } else { piotroskiEl.textContent = 'N/A'; }
 
             const grahamEl = document.getElementById('grahamValue');
             if (data.grahamScanPassed !== null) {
                 grahamEl.textContent = data.grahamScanPassed ? 'Pass' : 'Fail';
                 grahamEl.className = data.grahamScanPassed ? 'metric-value scan-passed' : 'metric-value scan-failed';
-            } else {
-                grahamEl.textContent = 'N/A';
-            }
+            } else { grahamEl.textContent = 'N/A'; }
 
             const fiiEl = document.getElementById('fiiValue');
             if (data.fiiPercentage !== null) {
                 fiiEl.textContent = `${(data.fiiPercentage).toFixed(2)} %`;
-            } else {
-                fiiEl.textContent = 'N/A';
-            }
+            } else { fiiEl.textContent = 'N/A'; }
         }
         
-        // The rest of the JavaScript (loaders, event listeners, etc.) remains the same.
-        // For brevity, it is not repeated here but MUST be in your file.
-        // Copy the full <script> section from the previous correct version.
+        // --- Full Helper and Main Functions Below ---
+        function drawMeter(recommendation) { if (typeof google === 'undefined' || !google.visualization) return; let meterValue = 2; switch(recommendation) { case "Strong Sell": meterValue = 0; break; case "Sell": meterValue = 1; break; case "Neutral": meterValue = 2; break; case "Buy": meterValue = 3; break; case "Strong Buy": meterValue = 4; break; } const data = google.visualization.arrayToDataTable([['Label', 'Value'], [recommendation, meterValue]]); const options = { width: '100%', height: 180, redFrom: 0, redTo: 1.5, yellowFrom: 1.5, yellowTo: 2.5, greenFrom: 2.5, greenTo: 4, minorTicks: 4, min: 0, max: 4, animation: { duration: 500, easing: 'out' } }; const chart = new google.visualization.Gauge(document.getElementById('meter_div')); chart.draw(data, options); }
+        function formatVolume(num) { if (!num || isNaN(num)) return '-'; if (num >= 10000000) return (num / 10000000).toFixed(2) + ' Cr'; if (num >= 100000) return (num / 100000).toFixed(2) + ' Lac'; if (num >= 1000) return (num / 1000).toFixed(2) + ' K'; return num.toString(); }
+        function loadTradingViewWidget(ticker) { const container = document.getElementById('tradingview-widget-container'); if (!ticker || !container) return; container.innerHTML = ''; const parts = ticker.split('-'); const symbol = parts[0]; const exchange = parts[parts.length - 1]; const tradingViewSymbol = `${exchange}:${symbol}`; const script = document.createElement('script'); script.src = 'https://s3.tradingview.com/tv.js'; script.async = true; script.onload = () => { new TradingView.widget({ "autosize": true, "symbol": tradingViewSymbol, "interval": "D", "timezone": "Asia/Kolkata", "theme": "light", "style": "1", "locale": "en", "enable_publishing": false, "allow_symbol_change": true, "container_id": "tradingview-widget-container" }); }; container.appendChild(script); }
+        async function searchStock(ticker) { const searchButton = document.getElementById('searchBtn'); if (!ticker) { alert('Please enter a stock ticker.'); return; } searchButton.disabled = true; searchButton.textContent = 'Loading...'; const isFirstLoad = document.getElementById('dashboardContent').classList.contains('hidden'); if (isFirstLoad) { document.getElementById('loader').classList.remove('hidden'); } try { const apiUrl = `/api/stock-data?ticker=${ticker.toUpperCase()}`; const response = await fetch(apiUrl); const data = await response.json(); if (!response.ok || data.error) { throw new Error(data.details || 'Stock not found or API error.'); } updateDashboard(data); loadTradingViewWidget(data.ticker); if (isFirstLoad) { document.getElementById('loader').classList.add('hidden'); document.getElementById('dashboardContent').classList.remove('hidden'); } } catch (error) { alert(`Error: ${error.message}`); if (isFirstLoad) { document.getElementById('loader').classList.add('hidden'); document.getElementById('dashboardContent').classList.remove('hidden'); } } finally { searchButton.disabled = false; searchButton.textContent = 'Search'; } }
+        google.charts.load('current', {'packages':['gauge']});
+        google.charts.setOnLoadCallback(runApplication);
+        function runApplication() { const searchButton = document.getElementById('searchBtn'); const tickerInput = document.getElementById('tickerInput'); searchButton.addEventListener('click', () => { searchStock(tickerInput.value); }); tickerInput.addEventListener('keypress', (event) => { if (event.key === 'Enter') { searchStock(tickerInput.value); } }); searchStock('RELIANCE'); }
     </script>
 </body>
 </html>
