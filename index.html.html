@@ -30,9 +30,13 @@
         .metric-value { font-weight: 500; }
         .loader { text-align: center; padding: 100px; font-size: 20px; font-weight: 500; color: #666; }
         .hidden { display: none; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
+        th, td { text-align: left; padding: 8px; border-bottom: 1px solid #f0f0f0; }
+        th { color: #666; font-weight: 500; }
+        .pivot-table td, .pivot-table th { text-align: center; }
+        .pivot-table th:first-child, .pivot-table td:first-child { text-align: left; font-weight: 700; }
+        .pivot-table td:nth-child(5) { background-color: #f8f9fa; font-weight: 700; }
         #meter_div { width: 100%; height: 180px; }
-        .scan-passed { color: #2e7d32; font-weight: 700; }
-        .scan-failed { color: #c62828; font-weight: 700; }
     </style>
 </head>
 <body>
@@ -47,99 +51,143 @@
                 <div class="search-container"><input type="text" id="tickerInput" class="search-input" placeholder="Enter Ticker (e.g., RELIANCE)"><button id="searchBtn" class="search-button">Search</button></div>
             </div>
             <div class="card" style="margin-top: 20px; height: 550px;"><canvas id="mainChart"></canvas></div>
+            <div class="card" style="margin-top: 20px;">
+                <h4>Pivot Levels</h4><table id="pivotTable" class="pivot-table"></table>
+            </div>
         </div>
         <div class="right-column">
             <div class="card"><h4>Technical Summary</h4><div id="meter_div"></div></div>
-            <div class="card" style="margin-top: 20px;"><h4>Key Metrics</h4><div class="metrics-grid">
-                <div class="metric"><span class="metric-label">Open</span><span id="openValue">-</span></div>
-                <div class="metric"><span class="metric-label">High</span><span id="highValue">-</span></div>
-                <div class="metric"><span class="metric-label">Low</span><span id="lowValue">-</span></div>
-                <div class="metric"><span class="metric-label">Prev. Close</span><span id="closeValue">-</span></div>
-                <div class="metric"><span class="metric-label">Volume</span><span id="volumeValue">-</span></div>
-            </div></div>
-            <div class="card" style="margin-top: 20px;"><h4>Technical Indicators</h4><div class="metrics-grid">
-                <div class="metric"><span class="metric-label">RSI (14)</span><span id="rsiValue">-</span></div>
-                <div class="metric"><span class="metric-label">EMA (20)</span><span id="ema20Value">-</span></div>
-                <div class="metric"><span class="metric-label">EMA (50)</span><span id="ema50Value">-</span></div>
-            </div></div>
-            <div class="card" style="margin-top: 20px;"><h4>Fundamental Scans</h4><div class="metrics-grid" style="grid-template-columns: 1fr;">
-                <div class="metric"><span class="metric-label">Piotroski F-Score</span><span id="piotroskiValue">- / 9</span></div>
-                <div class="metric"><span class="metric-label">Graham Scan</span><span id="grahamValue">-</span></div>
-                <div class="metric"><span class="metric-label">FII Shareholding</span><span id="fiiValue">- %</span></div>
-            </div></div>
+            <div class="card" style="margin-top: 20px;">
+                <h4>Key Metrics</h4>
+                <div class="metrics-grid">
+                    <div class="metric"><span class="metric-label">Open</span><span id="openValue">-</span></div>
+                    <div class="metric"><span class="metric-label">High</span><span id="highValue">-</span></div>
+                    <div class="metric"><span class="metric-label">Low</span><span id="lowValue">-</span></div>
+                    <div class="metric"><span class="metric-label">Prev. Close</span><span id="closeValue">-</span></div>
+                    <div class="metric"><span class="metric-label">Volume</span><span id="volumeValue">-</span></div>
+                </div>
+            </div>
+            <div class="card" style="margin-top: 20px;"><h4>Technical Indicators</h4><div id="indicatorDiv">N/A</div></div>
+            <div class="card" style="margin-top: 20px;"><h4>Fundamental Scans</h4><div id="fundamentalDiv">N/A</div></div>
         </div>
     </div>
     <script>
+        // --- FINAL, VERIFIED JAVASCRIPT ---
         const UI = {
             loader: document.getElementById('loader'), dashboard: document.getElementById('dashboardContent'),
             stockName: document.getElementById('stockName'), stockTicker: document.getElementById('stockTicker'),
             stockPrice: document.getElementById('stockPrice'), stockChange: document.getElementById('stockChange'),
             openValue: document.getElementById('openValue'), highValue: document.getElementById('highValue'),
             lowValue: document.getElementById('lowValue'), closeValue: document.getElementById('closeValue'),
-            volumeValue: document.getElementById('volumeValue'), rsiValue: document.getElementById('rsiValue'),
-            ema20Value: document.getElementById('ema20Value'), ema50Value: document.getElementById('ema50Value'),
-            piotroskiValue: document.getElementById('piotroskiValue'), grahamValue: document.getElementById('grahamValue'),
-            fiiValue: document.getElementById('fiiValue'), searchBtn: document.getElementById('searchBtn'),
-            tickerInput: document.getElementById('tickerInput'), meterContainer: document.getElementById('meter_div'),
+            volumeValue: document.getElementById('volumeValue'), searchBtn: document.getElementById('searchBtn'),
+            tickerInput: document.getElementById('tickerInput'), pivotTable: document.getElementById('pivotTable'),
+            indicatorDiv: document.getElementById('indicatorDiv'), fundamentalDiv: document.getElementById('fundamentalDiv'),
+            meterContainer: document.getElementById('meter_div'),
         };
         let mainChart = null;
 
-        function formatVal(val, type = 'price') { if (val === null || val === undefined) return 'N/A'; if (type === 'price') return `₹${Number(val).toFixed(2)}`; if (type === 'percent') return `${Number(val).toFixed(2)}%`; if (type === 'number') return Number(val).toFixed(2); if (type === 'volume') { if (val >= 10000000) return `${(val / 10000000).toFixed(2)} Cr`; if (val >= 100000) return `${(val / 100000).toFixed(2)} Lac`; return val.toString(); } return val; }
+        function formatVal(val, type = 'price', places = 2) {
+            if (val === null || val === undefined) return 'N/A';
+            if (type === 'price') return `₹${Number(val).toFixed(places)}`;
+            if (type === 'percent') return `${Number(val).toFixed(places)}%`;
+            if (type === 'volume') {
+                if (val >= 10000000) return `${(val / 10000000).toFixed(2)} Cr`;
+                return `${(val / 100000).toFixed(2)} Lac`;
+            }
+            return Number(val).toFixed(places);
+        }
+
+        function populatePivotTable(pivots) {
+            const table = UI.pivotTable;
+            table.innerHTML = `<tr><th>Type</th><th>R3</th><th>R2</th><th>R1</th><th>PP</th><th>S1</th><th>S2</th><th>S3</th></tr>`;
+            const createRow = (name, p) => {
+                if (!p) return;
+                table.insertRow().innerHTML = `<td>${name}</td><td>${formatVal(p.r3)}</td><td>${formatVal(p.r2)}</td><td>${formatVal(p.r1)}</td><td><b>${formatVal(p.pp)}</b></td><td>${formatVal(p.s1)}</td><td>${formatVal(p.s2)}</td><td>${formatVal(p.s3)}</td>`;
+            };
+            createRow('Classic', pivots.classic);
+            createRow('Fibonacci', pivots.fibonacci);
+            createRow('Camarilla', pivots.camarilla);
+        }
+
+        function updateUI(marketData, analysisData) {
+            UI.stockName.textContent = marketData.name;
+            UI.stockTicker.textContent = marketData.ticker;
+            UI.stockPrice.textContent = formatVal(marketData.price);
+            UI.stockChange.textContent = `${formatVal(marketData.change)} (${formatVal(marketData.changePct, 'percent')})`;
+            UI.stockChange.className = marketData.change >= 0 ? 'change positive' : 'change negative';
+            UI.openValue.textContent = formatVal(marketData.open);
+            UI.highValue.textContent = formatVal(marketData.high);
+            UI.lowValue.textContent = formatVal(marketData.low);
+            UI.closeValue.textContent = formatVal(marketData.close);
+            UI.volumeValue.textContent = formatVal(marketData.volume, 'volume');
+            
+            const chartData = marketData.history.map(d => ({ x: new Date(d.time).getTime(), o: d.open, h: d.high, l: d.low, c: d.close }));
+            mainChart.data.datasets[0].data = chartData;
+            mainChart.update();
+
+            UI.indicatorDiv.innerHTML = `<div class="metrics-grid">
+                <div class="metric"><span class="metric-label">RSI (14)</span><span>${formatVal(analysisData.rsi)}</span></div>
+                <div class="metric"><span class="metric-label">EMA (20)</span><span>${formatVal(analysisData.ema20)}</span></div>
+                <div class="metric"><span class="metric-label">EMA (50)</span><span>${formatVal(analysisData.ema50)}</span></div>
+            </div>`;
+            
+            UI.fundamentalDiv.innerHTML = `<div class="metrics-grid" style="grid-template-columns: 1fr;">
+                <div class="metric"><span class="metric-label">Piotroski F-Score</span><span>${analysisData.piotroskiFScore !== null ? `${analysisData.piotroskiFScore} / 9` : 'N/A'}</span></div>
+                <div class="metric"><span class="metric-label">Graham Scan</span><span class="${analysisData.grahamScanPassed ? 'scan-passed' : 'scan-failed'}">${analysisData.grahamScanPassed !== null ? (analysisData.grahamScanPassed ? 'Pass' : 'Fail') : 'N/A'}</span></div>
+                <div class="metric"><span class="metric-label">FII Shareholding</span><span>${formatVal(analysisData.fiiPercentage, 'percent')}</span></div>
+            </div>`;
+            
+            drawMeter(analysisData.recommendation);
+            populatePivotTable(analysisData.pivots);
+        }
 
         async function fullSearch(ticker) {
-            UI.searchBtn.disabled = true; UI.searchBtn.textContent = 'Loading...';
-            
-            // --- NEW TWO-STEP LOADING PROCESS ---
+            UI.searchBtn.disabled = true;
+            UI.searchBtn.textContent = 'Loading...';
             try {
-                // Step 1: Fetch FAST market data first
                 const marketRes = await fetch(`/api/market-data?ticker=${ticker.toUpperCase()}`);
                 const marketData = await marketRes.json();
                 if (!marketRes.ok) throw new Error(marketData.details || 'Market data error');
                 
-                // Instantly update the main UI with market data
-                UI.stockName.textContent = marketData.name; UI.stockTicker.textContent = marketData.ticker;
-                UI.stockPrice.textContent = formatVal(marketData.price);
-                UI.stockChange.textContent = `${formatVal(marketData.change, 'number')} (${formatVal(marketData.changePct, 'percent')})`;
-                UI.stockChange.className = marketData.change >= 0 ? 'change positive' : 'change negative';
-                UI.openValue.textContent = formatVal(marketData.open); UI.highValue.textContent = formatVal(marketData.high);
-                UI.lowValue.textContent = formatVal(marketData.low); UI.closeValue.textContent = formatVal(marketData.close);
-                UI.volumeValue.textContent = formatVal(marketData.volume, 'volume');
-                
-                const chartData = marketData.history.map(d => ({ x: new Date(d.time).getTime(), o: d.open, h: d.high, l: d.low, c: d.close }));
-                mainChart.data.datasets[0].data = chartData;
-                mainChart.update();
+                // Instantly update the main UI
+                updateUI(marketData, {}); // Pass empty analysis object initially
 
-                // Step 2: Now, fetch SLOW analysis data in the background
                 const analysisRes = await fetch(`/api/analysis-data?ticker=${ticker.toUpperCase()}&price=${marketData.price}`);
                 const analysisData = await analysisRes.json();
-                if (!analysisRes.ok) throw new Error(analysisData.details || 'Analysis data error');
+                if (!analysisRes.ok) throw new Error(analysisData.details);
 
-                // Update the rest of the UI with analysis data
-                UI.rsiValue.textContent = formatVal(analysisData.rsi, 'number');
-                UI.ema20Value.textContent = formatVal(analysisData.ema20, 'price');
-                UI.ema50Value.textContent = formatVal(analysisData.ema50, 'price');
-                UI.piotroskiValue.textContent = analysisData.piotroskiFScore !== null ? `${analysisData.piotroskiFScore} / 9` : 'N/A';
-                UI.grahamValue.textContent = analysisData.grahamScanPassed !== null ? (analysisData.grahamScanPassed ? 'Pass' : 'Fail') : 'N/A';
-                UI.grahamValue.className = analysisData.grahamScanPassed ? 'metric-value scan-passed' : 'metric-value scan-failed';
-                UI.fiiValue.textContent = analysisData.fiiPercentage !== null ? formatVal(analysisData.fiiPercentage, 'percent') : 'N/A';
-                drawMeter(analysisData.recommendation);
+                // Update UI again with the full data
+                updateUI(marketData, analysisData);
 
             } catch (error) {
                 alert(`Error: ${error.message}`);
             } finally {
-                UI.searchBtn.disabled = false; UI.searchBtn.textContent = 'Search';
+                UI.searchBtn.disabled = false;
+                UI.searchBtn.textContent = 'Search';
             }
         }
 
-        function drawMeter(recommendation) { let v = 2; switch(recommendation) { case "Strong Sell": v = 0; case "Sell": v = 1; case "Neutral": v = 2; case "Buy": v = 3; case "Strong Buy": v = 4; } const d = google.visualization.arrayToDataTable([['Label', 'Value'], [recommendation || 'N/A', v]]); const o = { width: '100%', height: 180, redFrom: 0, redTo: 1.5, yellowFrom: 1.5, yellowTo: 2.5, greenFrom: 2.5, greenTo: 4, minorTicks: 4, min: 0, max: 4 }; new google.visualization.Gauge(UI.meterContainer).draw(d, o); }
+        function drawMeter(recommendation) {
+            let v = 2; switch(recommendation) { case "Strong Sell": v = 0; case "Sell": v = 1; case "Neutral": v = 2; case "Buy": v = 3; case "Strong Buy": v = 4; }
+            const d = google.visualization.arrayToDataTable([['Label', 'Value'], [recommendation || 'N/A', v]]);
+            const o = { width: '100%', height: 180, redFrom: 0, redTo: 1.5, yellowFrom: 1.5, yellowTo: 2.5, greenFrom: 2.5, greenTo: 4, minorTicks: 4, min: 0, max: 4 };
+            new google.visualization.Gauge(UI.meterContainer).draw(d, o);
+        }
 
         function initializeApp() {
             UI.loader.classList.add('hidden');
             UI.dashboard.classList.remove('hidden');
+            
             const ctx = document.getElementById('mainChart').getContext('2d');
-            mainChart = new Chart(ctx, { type: 'candlestick', data: { datasets: [{ data: [] }] }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { type: 'time', time: { unit: 'day' } } } } });
+            mainChart = new Chart(ctx, {
+                type: 'candlestick',
+                data: { datasets: [{ data: [] }] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { x: { type: 'time', time: { unit: 'day' } } } }
+            });
+            
             UI.searchBtn.addEventListener('click', () => fullSearch(UI.tickerInput.value));
             UI.tickerInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') fullSearch(UI.tickerInput.value); });
+            
             fullSearch('RELIANCE');
         }
         
