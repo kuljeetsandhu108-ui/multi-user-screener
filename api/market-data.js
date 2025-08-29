@@ -1,6 +1,5 @@
 // ===================================================================
 // FINAL, VERIFIED BACKEND 1: /api/market-data.js
-// This function is FAST. It only gets essential market and chart data.
 // ===================================================================
 const { SmartAPI } = require("smartapi-javascript");
 const { TOTP } = require("otpauth");
@@ -8,8 +7,15 @@ const fetch = require('node-fetch');
 
 let instrumentCache = null;
 
-const getTodayDateStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} 15:30`; };
-const getPastDateStr = (daysAgo) => { const d = new Date(); d.setDate(d.getDate() - daysAgo); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} 09:15`; };
+const getTodayDateStr = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} 15:30`;
+};
+const getPastDateStr = (daysAgo) => {
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} 09:15`;
+};
 
 module.exports = async (request, response) => {
     try {
@@ -17,7 +23,9 @@ module.exports = async (request, response) => {
         if (!ticker) throw new Error('Ticker symbol is required');
 
         let fullTicker = ticker.toUpperCase();
-        if (!fullTicker.includes('-')) fullTicker += '-NSE';
+        if (!fullTicker.includes('-')) {
+            fullTicker += '-NSE';
+        }
 
         const tradingSymbol = fullTicker.split('-')[0];
         const exchange = fullTicker.split('-')[1] || 'NSE';
@@ -32,10 +40,14 @@ module.exports = async (request, response) => {
             const res = await fetch('https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json');
             instrumentCache = await res.json();
         }
-        if (!Array.isArray(instrumentCache)) throw new Error('Instrument list is not valid.');
+        if (!Array.isArray(instrumentCache)) {
+            throw new Error('Instrument list is not valid.');
+        }
         
         const instrument = instrumentCache.find(i => i.symbol.startsWith(tradingSymbol) && i.exch_seg === exchange && i.instrumenttype === "");
-        if (!instrument) throw new Error(`Symbol token not found for ${ticker}`);
+        if (!instrument) {
+            throw new Error(`Symbol token not found for ${ticker}`);
+        }
         const symbolToken = instrument.token;
         
         const [quoteRes, historyRes] = await Promise.all([
@@ -48,20 +60,28 @@ module.exports = async (request, response) => {
         ]);
 
         const quoteData = await quoteRes.json();
-        if (quoteData.status === false || !quoteData.data) throw new Error(quoteData.message || "Invalid quote data.");
+        if (quoteData.status === false || !quoteData.data) {
+            throw new Error(quoteData.message || "Invalid quote data from Angel One.");
+        }
         const stockInfo = quoteData.data.fetched[0];
         const candles = historyRes.data || [];
         const history = candles.map(c => ({ time: c[0].split('T')[0], open: c[1], high: c[2], low: c[3], close: c[4] }));
         
         const responseData = {
-            name: stockInfo.tradingSymbol, ticker: `${stockInfo.tradingSymbol}-${stockInfo.exchange}`,
-            price: stockInfo.ltp, change: stockInfo.change, changePct: stockInfo.percChange,
-            open: stockInfo.open, high: stockInfo.high, low: stockInfo.low,
-            close: stockInfo.close, volume: stockInfo.tradeVolume,
+            name: stockInfo.tradingSymbol,
+            ticker: `${stockInfo.tradingSymbol}-${stockInfo.exchange}`,
+            price: stockInfo.ltp,
+            change: stockInfo.change,
+            changePct: stockInfo.percChange, // Corrected property name
+            open: stockInfo.open,
+            high: stockInfo.high,
+            low: stockInfo.low,
+            close: stockInfo.close,
+            volume: stockInfo.tradeVolume,
             history
         };
         
-        response.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate'); // Short cache for live data
+        response.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate');
         return response.status(200).json(responseData);
 
     } catch (error) {
