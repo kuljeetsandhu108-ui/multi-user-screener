@@ -37,8 +37,10 @@
         .pivot-table th:first-child, .pivot-table td:first-child { text-align: left; font-weight: 700; }
         .pivot-table td:nth-child(5) { background-color: #f8f9fa; font-weight: 700; }
         #meter_div { width: 100%; height: 180px; }
-        .scan-passed { color: #2e7d32; font-weight: 700; }
-        .scan-failed { color: #c62828; font-weight: 700; }
+        .summary-grid .metric-value { font-weight: 700; }
+        .summary-bullish { color: #26a69a; }
+        .summary-bearish { color: #ef5350; }
+        .summary-neutral { color: #333; }
     </style>
 </head>
 <body>
@@ -47,8 +49,8 @@
         <div class="left-column">
             <div class="card">
                 <div class="header">
-                    <div><div id="stockName">-</div><div id="stockTicker">-</div></div>
-                    <div class="price-info"><span id="stockPrice">-</span><span id="stockChange"></span></div>
+                    <div><div id="stockName" class="stock-name">-</div><div id="stockTicker" class="stock-ticker">-</div></div>
+                    <div class="price-info"><span id="stockPrice" class="price">-</span><span id="stockChange" class="change"></span></div>
                 </div>
                 <div class="search-container"><input type="text" id="tickerInput" class="search-input" placeholder="Enter Ticker (e.g., RELIANCE)"><button id="searchBtn" class="search-button">Search</button></div>
             </div>
@@ -59,6 +61,15 @@
         </div>
         <div class="right-column">
             <div class="card"><h4>Technical Summary</h4><div id="meter_div"></div></div>
+            <!-- NEW SUMMARIES CARD -->
+            <div class="card" style="margin-top: 20px;">
+                <h4>Summaries</h4>
+                <div class="metrics-grid summary-grid" style="grid-template-columns: 1fr; gap: 12px;">
+                    <div class="metric"><span class="metric-label">Moving Averages</span><span id="maSummary" class="metric-value">-</span></div>
+                    <div class="metric"><span class="metric-label">Technical Indicators</span><span id="indicatorSummary" class="metric-value">-</span></div>
+                    <div class="metric"><span class="metric-label">MA Crossovers</span><span id="crossoverSummary" class="metric-value">-</span></div>
+                </div>
+            </div>
             <div class="card" style="margin-top: 20px;">
                 <h4>Key Metrics</h4>
                 <div class="metrics-grid">
@@ -74,11 +85,6 @@
                 <div class="metric"><span class="metric-label">EMA (20)</span><span id="ema20Value">-</span></div>
                 <div class="metric"><span class="metric-label">EMA (50)</span><span id="ema50Value">-</span></div>
             </div></div>
-            <div class="card" style="margin-top: 20px;"><h4>Fundamental Scans</h4><div class="metrics-grid" style="grid-template-columns: 1fr;">
-                <div class="metric"><span class="metric-label">Piotroski F-Score</span><span id="piotroskiValue">- / 9</span></div>
-                <div class="metric"><span class="metric-label">Graham Scan</span><span id="grahamValue">-</span></div>
-                <div class="metric"><span class="metric-label">FII Shareholding</span><span id="fiiValue">- %</span></div>
-            </div></div>
         </div>
     </div>
     <script>
@@ -91,45 +97,45 @@
             volumeValue: document.getElementById('volumeValue'), searchBtn: document.getElementById('searchBtn'),
             tickerInput: document.getElementById('tickerInput'), pivotTable: document.getElementById('pivotTable'),
             rsiValue: document.getElementById('rsiValue'), ema20Value: document.getElementById('ema20Value'),
-            ema50Value: document.getElementById('ema50Value'),
-            piotroskiValue: document.getElementById('piotroskiValue'), grahamValue: document.getElementById('grahamValue'),
-            fiiValue: document.getElementById('fiiValue'), meterContainer: document.getElementById('meter_div'),
+            ema50Value: document.getElementById('ema50Value'), meterContainer: document.getElementById('meter_div'),
+            maSummary: document.getElementById('maSummary'), indicatorSummary: document.getElementById('indicatorSummary'),
+            crossoverSummary: document.getElementById('crossoverSummary'),
         };
         let mainChart = null;
 
         function formatVal(val, type = 'price') { if (val === null || val === undefined) return 'N/A'; if (type === 'price') return `₹${Number(val).toFixed(2)}`; if (type === 'percent') return `${Number(val).toFixed(2)}%`; if (type === 'number') return Number(val).toFixed(2); if (type === 'volume') { if (val >= 10000000) return `${(val / 10000000).toFixed(2)} Cr`; return `${(val / 100000).toFixed(2)} Lac`; } return val; }
 
         function populatePivotTable(pivots) {
-            const table = UI.pivotTable;
-            table.innerHTML = `<tr><th>Type</th><th>R3</th><th>R2</th><th>R1</th><th>PP</th><th>S1</th><th>S2</th><th>S3</th></tr>`;
+            const table = UI.pivotTable; table.innerHTML = `<tr><th>Type</th><th>R3</th><th>R2</th><th>R1</th><th>PP</th><th>S1</th><th>S2</th><th>S3</th></tr>`;
             if (!pivots) return;
             const createRow = (name, p) => { if (!p) return; table.insertRow().innerHTML = `<td>${name}</td><td>${formatVal(p.r3)}</td><td>${formatVal(p.r2)}</td><td>${formatVal(p.r1)}</td><td><b>${formatVal(p.pp)}</b></td><td>${formatVal(p.s1)}</td><td>${formatVal(p.s2)}</td><td>${formatVal(p.s3)}</td>`; };
-            createRow('Classic', pivots.classic);
-            createRow('Fibonacci', pivots.fibonacci);
-            createRow('Camarilla', pivots.camarilla);
+            createRow('Classic', pivots.classic); createRow('Fibonacci', pivots.fibonacci); createRow('Camarilla', pivots.camarilla);
         }
-
+        
         function updateMarketUI(data) {
             UI.stockName.textContent = data.name; UI.stockTicker.textContent = data.ticker;
-            UI.stockPrice.textContent = formatVal(data.price);
-            UI.stockChange.textContent = `${formatVal(data.change, 'number')} (${formatVal(data.changePct, 'percent')})`;
+            UI.stockPrice.textContent = formatVal(data.price); UI.stockChange.textContent = `${formatVal(data.change)} (${formatVal(data.changePct, 'percent')})`;
             UI.stockChange.className = data.change >= 0 ? 'change positive' : 'change negative';
-            UI.openValue.textContent = formatVal(data.open, 'price'); UI.highValue.textContent = formatVal(data.high, 'price');
-            UI.lowValue.textContent = formatVal(data.low, 'price'); UI.closeValue.textContent = formatVal(data.close, 'price');
+            UI.openValue.textContent = formatVal(data.open); UI.highValue.textContent = formatVal(data.high);
+            UI.lowValue.textContent = formatVal(data.low); UI.closeValue.textContent = formatVal(data.close);
             UI.volumeValue.textContent = formatVal(data.volume, 'volume');
             const chartData = data.history.map(d => ({ x: new Date(d.time).getTime(), o: d.open, h: d.high, l: d.low, c: d.close }));
-            mainChart.data.datasets[0].data = chartData;
-            mainChart.update();
+            mainChart.data.datasets[0].data = chartData; mainChart.update();
         }
         
         function updateAnalysisUI(data) {
             UI.rsiValue.textContent = formatVal(data.rsi, 'number');
             UI.ema20Value.textContent = formatVal(data.ema20, 'price');
             UI.ema50Value.textContent = formatVal(data.ema50, 'price');
-            UI.piotroskiValue.textContent = data.piotroskiFScore !== null ? `${data.piotroskiFScore} / 9` : 'N/A';
-            UI.grahamValue.textContent = data.grahamScanPassed !== null ? (data.grahamScanPassed ? 'Pass' : 'Fail') : 'N/A';
-            UI.grahamValue.className = data.grahamScanPassed ? 'metric-value scan-passed' : 'metric-value scan-failed';
-            UI.fiiValue.textContent = data.fiiPercentage !== null ? formatVal(data.fiiPercentage, 'percent') : 'N/A';
+            
+            // Update Summaries
+            const setSummary = (el, val) => { el.textContent = val; el.className = `metric-value summary-${val.split(' ')[0].toLowerCase()}`; };
+            if (data.summaries) {
+                setSummary(UI.maSummary, data.summaries.ma);
+                setSummary(UI.indicatorSummary, data.summaries.indicators);
+                setSummary(UI.crossoverSummary, data.summaries.crossovers);
+            }
+
             drawMeter(data.recommendation);
             populatePivotTable(data.pivots);
         }
@@ -143,13 +149,10 @@
                 updateMarketUI(marketData);
 
                 const analysisRes = await fetch(`/api/analysis-data?ticker=${ticker.toUpperCase()}&price=${marketData.price}`);
-                const analysisData = await analysisRes.json();
                 if (analysisRes.ok) {
+                    const analysisData = await analysisRes.json();
                     updateAnalysisUI(analysisData);
-                } else {
-                    console.warn("Could not fetch analysis data:", analysisData.details);
-                }
-
+                } else { console.warn("Could not fetch analysis data."); }
             } catch (error) {
                 alert(`Error: ${error.message}`);
             } finally {
@@ -157,11 +160,10 @@
             }
         }
 
-        function drawMeter(recommendation) { let v = 2; switch(recommendation) { case "Strong Sell": v = 0; case "Sell": v = 1; case "Neutral": v = 2; case "Buy": v = 3; case "Strong Buy": v = 4; } const d = google.visualization.arrayToDataTable([['Label', 'Value'], [recommendation || 'N/A', v]]); const o = { width: '100%', height: 180, redFrom: 0, redTo: 1.5, yellowFrom: 1.5, yellowTo: 2.5, greenFrom: 2.5, greenTo: 4, minorTicks: 4, min: 0, max: 4 }; new google.visualization.Gauge(UI.meterContainer).draw(d, o); }
+        function drawMeter(recommendation) { let v = 2; switch(recommendation) { case "Strong Sell": v = 0; case "Sell": v = 1; case "Neutral": v = 2; case "Buy": v = 3; case "Strong Buy": v = 4; break; } const d = google.visualization.arrayToDataTable([['Label', 'Value'], [recommendation || 'N/A', v]]); const o = { width: '100%', height: 180, redFrom: 0, redTo: 1.5, yellowFrom: 1.5, yellowTo: 2.5, greenFrom: 2.5, greenTo: 4, minorTicks: 4, min: 0, max: 4 }; new google.visualization.Gauge(UI.meterContainer).draw(d, o); }
 
         function initializeApp() {
-            UI.loader.classList.add('hidden');
-            UI.dashboard.classList.remove('hidden');
+            UI.loader.classList.add('hidden'); UI.dashboard.classList.remove('hidden');
             const ctx = document.getElementById('mainChart').getContext('2d');
             mainChart = new Chart(ctx, { type: 'candlestick', data: { datasets: [{ data: [] }] }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { type: 'time', time: { unit: 'day' } } } } });
             UI.searchBtn.addEventListener('click', () => fullSearch(UI.tickerInput.value));
