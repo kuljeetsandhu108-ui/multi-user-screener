@@ -1,5 +1,5 @@
 // ===================================================================
-// FINAL, VERIFIED BACKEND 1: /api/market-data.js
+// FINAL, VERIFIED BACKEND 1: /api/market-data.js with Login Check
 // ===================================================================
 const { SmartAPI } = require("smartapi-javascript");
 const { TOTP } = require("otpauth");
@@ -7,15 +7,8 @@ const fetch = require('node-fetch');
 
 let instrumentCache = null;
 
-const getTodayDateStr = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} 15:30`;
-};
-const getPastDateStr = (daysAgo) => {
-    const d = new Date();
-    d.setDate(d.getDate() - daysAgo);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} 09:15`;
-};
+const getTodayDateStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} 15:30`; };
+const getPastDateStr = (daysAgo) => { const d = new Date(); d.setDate(d.getDate() - daysAgo); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} 09:15`; };
 
 module.exports = async (request, response) => {
     try {
@@ -33,7 +26,17 @@ module.exports = async (request, response) => {
         const smart_api = new SmartAPI({ api_key: process.env.ANGEL_API_KEY });
         let totp = new TOTP({ secret: process.env.ANGEL_TOTP_SECRET });
         const generatedToken = totp.generate();
+        
         const session = await smart_api.generateSession(process.env.ANGEL_CLIENT_ID, process.env.ANGEL_MPIN, generatedToken);
+
+        // --- THE GUARANTEED FIX IS HERE ---
+        // 1. Check if the login was successful BEFORE trying to use the data.
+        if (!session || !session.data || !session.data.jwtToken) {
+            // Provide a clear, detailed error message
+            throw new Error("Login to Angel One failed. Please check your credentials in Vercel. API Message: " + (session.message || "Unknown login error"));
+        }
+        // --- END OF FIX ---
+
         const jwtToken = session.data.jwtToken;
 
         if (!instrumentCache) {
@@ -72,7 +75,7 @@ module.exports = async (request, response) => {
             ticker: `${stockInfo.tradingSymbol}-${stockInfo.exchange}`,
             price: stockInfo.ltp,
             change: stockInfo.change,
-            changePct: stockInfo.percChange, // Corrected property name
+            changePct: stockInfo.percChange,
             open: stockInfo.open,
             high: stockInfo.high,
             low: stockInfo.low,
