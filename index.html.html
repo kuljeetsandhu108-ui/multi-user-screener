@@ -114,8 +114,7 @@
             
             const chartData = marketData.history.map(d => ({ x: new Date(d.time).getTime(), o: d.open, h: d.high, l: d.low, c: d.close }));
             mainChart.data.datasets[0].data = chartData;
-            mainChart.update();
-            mainChart.resetZoom();
+            mainChart.update(); // The update() call is all that's needed to redraw the chart with new data.
 
             if (analysisData.recommendation) {
                 UI.indicatorDiv.innerHTML = `<div class="metric"><span class="metric-label">RSI (14)</span><span>${formatVal(analysisData.rsi)}</span></div>
@@ -133,16 +132,12 @@
             UI.searchBtn.disabled = true; UI.searchBtn.textContent = 'Loading...';
             UI.aiReportContent.innerHTML = "Generating insights...";
             try {
-                const [marketRes, analysisRes] = await Promise.all([
-                    fetch(`/api/market-data?ticker=${ticker.toUpperCase()}`),
-                    fetch(`/api/analysis-data?ticker=${ticker.toUpperCase()}&price=0`) // Price is placeholder
-                ]);
-
+                const marketRes = await fetch(`/api/market-data?ticker=${ticker.toUpperCase()}`);
                 const marketData = await marketRes.json();
                 if (!marketRes.ok) throw new Error(marketData.details || 'Market data error');
                 
-                const finalAnalysisRes = await fetch(`/api/analysis-data?ticker=${ticker.toUpperCase()}&price=${marketData.price}`);
-                const analysisData = await finalAnalysisRes.json();
+                const analysisRes = await fetch(`/api/analysis-data?ticker=${ticker.toUpperCase()}&price=${marketData.price}`);
+                const analysisData = await analysisRes.json();
                 
                 updateUI(marketData, analysisData); // Update all UI with both data sets
 
