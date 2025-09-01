@@ -1,5 +1,5 @@
 // ===================================================================
-// FINAL, VERIFIED BACKEND 1: /api/market-data.js with Login Check
+// FINAL, VERIFIED & COMPLETE: /api/market-data.js
 // ===================================================================
 const { SmartAPI } = require("smartapi-javascript");
 const { TOTP } = require("otpauth");
@@ -7,8 +7,22 @@ const fetch = require('node-fetch');
 
 let instrumentCache = null;
 
-const getTodayDateStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} 15:30`; };
-const getPastDateStr = (daysAgo) => { const d = new Date(); d.setDate(d.getDate() - daysAgo); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} 09:15`; };
+const getTodayDateStr = () => {
+    const d = new Date();
+    const offset = d.getTimezoneOffset() * 60000;
+    const istOffset = 330 * 60000;
+    const istTime = new Date(d.getTime() + offset + istOffset);
+    return `${istTime.getFullYear()}-${String(istTime.getMonth() + 1).padStart(2, '0')}-${String(istTime.getDate()).padStart(2, '0')} 15:30`;
+};
+
+const getPastDateStr = (daysAgo) => {
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    const offset = d.getTimezoneOffset() * 60000;
+    const istOffset = 330 * 60000;
+    const istTime = new Date(d.getTime() + offset + istOffset);
+    return `${istTime.getFullYear()}-${String(istTime.getMonth() + 1).padStart(2, '0')}-${String(istTime.getDate()).padStart(2, '0')} 09:15`;
+};
 
 module.exports = async (request, response) => {
     try {
@@ -24,30 +38,28 @@ module.exports = async (request, response) => {
         const exchange = fullTicker.split('-')[1] || 'NSE';
         
         const smart_api = new SmartAPI({ api_key: process.env.ANGEL_API_KEY });
-        let totp = new TOTP({ secret: process.env.ANGEL_TOTP_SECRET });
-        const generatedToken = totp.generate();
         
+        let totp = new TOTP({ secret: process.env.ANGEL_TOTP_SECRET });
+        let generatedToken = totp.generate();
+
         const session = await smart_api.generateSession(process.env.ANGEL_CLIENT_ID, process.env.ANGEL_MPIN, generatedToken);
 
-        // --- THE GUARANTEED FIX IS HERE ---
-        // 1. Check if the login was successful BEFORE trying to use the data.
         if (!session || !session.data || !session.data.jwtToken) {
-            // Provide a clear, detailed error message
-            throw new Error("Login to Angel One failed. Please check your credentials in Vercel. API Message: " + (session.message || "Unknown login error"));
+            throw new Error("Login failed. Please check credentials in Vercel. API Message: " + (session.message || "Unknown login error"));
         }
-        // --- END OF FIX ---
-
+        
         const jwtToken = session.data.jwtToken;
 
         if (!instrumentCache) {
             const res = await fetch('https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json');
+            if (!res.ok) throw new Error('Failed to download instrument list.');
             instrumentCache = await res.json();
         }
         if (!Array.isArray(instrumentCache)) {
             throw new Error('Instrument list is not valid.');
         }
         
-        const instrument = instrumentCache.find(i => i.symbol.startsWith(tradingSymbol) && i.exch_seg === exchange && i.instrumenttype === "");
+        const instrument = instrumentCache.find(i => i.symbol.startsWith(tradingSymbol) && i.exch_seg === exchange && (i.instrumenttype === "" || i.instrumenttype === "AMX" || i.instrumenttype === "ACC"));
         if (!instrument) {
             throw new Error(`Symbol token not found for ${ticker}`);
         }

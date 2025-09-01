@@ -37,10 +37,6 @@
         .pivot-table th:first-child, .pivot-table td:first-child { text-align: left; font-weight: 700; }
         .pivot-table td:nth-child(5) { background-color: #f8f9fa; font-weight: 700; }
         #meter_div { width: 100%; height: 180px; }
-        .ai-report h3 { margin-top: 15px; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
-        .ai-report h4 { margin-top: 15px; margin-bottom: 5px; }
-        .ai-report ul { padding-left: 20px; margin: 10px 0 0 0; }
-        .ai-report li { margin-bottom: 8px; }
         .scan-passed { color: #2e7d32; font-weight: 700; }
         .scan-failed { color: #c62828; font-weight: 700; }
     </style>
@@ -60,10 +56,6 @@
             <div class="card" style="margin-top: 20px;">
                 <h4>Pivot Levels</h4><table id="pivotTable" class="pivot-table"></table>
             </div>
-            <div class="card ai-report" style="margin-top: 20px;">
-                <h4>AI Analyst Report</h4>
-                <div id="aiReportContent">Generating insights...</div>
-            </div>
         </div>
         <div class="right-column">
             <div class="card"><h4>Technical Summary</h4><div id="meter_div"></div></div>
@@ -77,8 +69,16 @@
                     <div class="metric"><span class="metric-label">Volume</span><span id="volumeValue">-</span></div>
                 </div>
             </div>
-            <div class="card" style="margin-top: 20px;"><h4>Technical Indicators</h4><div id="indicatorDiv">N/A</div></div>
-            <div class="card" style="margin-top: 20px;"><h4>Fundamental Scans</h4><div id="fundamentalDiv">N/A</div></div>
+            <div class="card" style="margin-top: 20px;"><h4>Technical Indicators</h4><div class="metrics-grid">
+                <div class="metric"><span class="metric-label">RSI (14)</span><span id="rsiValue">-</span></div>
+                <div class="metric"><span class="metric-label">EMA (20)</span><span id="ema20Value">-</span></div>
+                <div class="metric"><span class="metric-label">EMA (50)</span><span id="ema50Value">-</span></div>
+            </div></div>
+            <div class="card" style="margin-top: 20px;"><h4>Fundamental Scans</h4><div class="metrics-grid" style="grid-template-columns: 1fr;">
+                <div class="metric"><span class="metric-label">Piotroski F-Score</span><span id="piotroskiValue">- / 9</span></div>
+                <div class="metric"><span class="metric-label">Graham Scan</span><span id="grahamValue">-</span></div>
+                <div class="metric"><span class="metric-label">FII Shareholding</span><span id="fiiValue">- %</span></div>
+            </div></div>
         </div>
     </div>
     <script>
@@ -90,8 +90,10 @@
             lowValue: document.getElementById('lowValue'), closeValue: document.getElementById('closeValue'),
             volumeValue: document.getElementById('volumeValue'), searchBtn: document.getElementById('searchBtn'),
             tickerInput: document.getElementById('tickerInput'), pivotTable: document.getElementById('pivotTable'),
-            indicatorDiv: document.getElementById('indicatorDiv'), fundamentalDiv: document.getElementById('fundamentalDiv'),
-            meterContainer: document.getElementById('meter_div'), aiReportContent: document.getElementById('aiReportContent')
+            rsiValue: document.getElementById('rsiValue'), ema20Value: document.getElementById('ema20Value'),
+            ema50Value: document.getElementById('ema50Value'),
+            piotroskiValue: document.getElementById('piotroskiValue'), grahamValue: document.getElementById('grahamValue'),
+            fiiValue: document.getElementById('fiiValue'), meterContainer: document.getElementById('meter_div'),
         };
         let mainChart = null;
 
@@ -104,80 +106,61 @@
             createRow('Classic', pivots.classic); createRow('Fibonacci', pivots.fibonacci); createRow('Camarilla', pivots.camarilla);
         }
 
-        function updateUI(marketData, analysisData) {
-            UI.stockName.textContent = marketData.name; UI.stockTicker.textContent = marketData.ticker;
-            UI.stockPrice.textContent = `₹${formatVal(marketData.price)}`; UI.stockChange.textContent = `${formatVal(marketData.change)} (${formatVal(marketData.changePct, 'percent')})`;
-            UI.stockChange.className = marketData.change >= 0 ? 'change positive' : 'change negative';
-            UI.openValue.textContent = formatVal(marketData.open); UI.highValue.textContent = formatVal(marketData.high);
-            UI.lowValue.textContent = formatVal(marketData.low); UI.closeValue.textContent = formatVal(marketData.close);
-            UI.volumeValue.textContent = formatVal(marketData.volume, 'volume');
-            
-            const chartData = marketData.history.map(d => ({ x: new Date(d.time).getTime(), o: d.open, h: d.high, l: d.low, c: d.close }));
+        function updateMarketUI(data) {
+            UI.stockName.textContent = data.name; UI.stockTicker.textContent = data.ticker;
+            UI.stockPrice.textContent = formatVal(data.price);
+            UI.stockChange.textContent = `${formatVal(data.change, 'number')} (${formatVal(data.changePct, 'percent')})`;
+            UI.stockChange.className = data.change >= 0 ? 'change positive' : 'change negative';
+            UI.openValue.textContent = formatVal(data.open, 'price'); UI.highValue.textContent = formatVal(data.high, 'price');
+            UI.lowValue.textContent = formatVal(data.low, 'price'); UI.closeValue.textContent = formatVal(data.close, 'price');
+            UI.volumeValue.textContent = formatVal(data.volume, 'volume');
+            const chartData = data.history.map(d => ({ x: new Date(d.time).getTime(), o: d.open, h: d.high, l: d.low, c: d.close }));
             mainChart.data.datasets[0].data = chartData;
             mainChart.update();
-            mainChart.resetZoom(); // The correct function call without parameters
-
-            if (analysisData.recommendation) {
-                UI.indicatorDiv.innerHTML = `<div class="metrics-grid">
-                    <div class="metric"><span class="metric-label">RSI (14)</span><span>${formatVal(analysisData.rsi)}</span></div>
-                    <div class="metric"><span class="metric-label">EMA (20)</span><span>${formatVal(analysisData.ema20, 'price')}</span></div>
-                    <div class="metric"><span class="metric-label">EMA (50)</span><span>${formatVal(analysisData.ema50, 'price')}</span></div>
-                </div>`;
-                UI.fundamentalDiv.innerHTML = `<div class="metrics-grid" style="grid-template-columns: 1fr;">
-                    <div class="metric"><span class="metric-label">Piotroski F-Score</span><span>${analysisData.piotroskiFScore !== null ? `${analysisData.piotroskiFScore} / 9` : 'N/A'}</span></div>
-                    <div class="metric"><span class="metric-label">Graham Scan</span><span class="${analysisData.grahamScanPassed ? 'scan-passed' : 'scan-failed'}">${analysisData.grahamScanPassed !== null ? (analysisData.grahamScanPassed ? 'Pass' : 'Fail') : 'N/A'}</span></div>
-                    <div class="metric"><span class="metric-label">FII Shareholding</span><span>${formatVal(analysisData.fiiPercentage, 'percent')}</span></div>
-                </div>`;
-                drawMeter(analysisData.recommendation);
-                populatePivotTable(analysisData.pivots);
-            }
+            mainChart.resetZoom();
+        }
+        
+        function updateAnalysisUI(data) {
+            UI.rsiValue.textContent = formatVal(data.rsi, 'number');
+            UI.ema20Value.textContent = formatVal(data.ema20, 'price');
+            UI.ema50Value.textContent = formatVal(data.ema50, 'price');
+            UI.piotroskiValue.textContent = data.piotroskiFScore !== null ? `${data.piotroskiFScore} / 9` : 'N/A';
+            UI.grahamValue.textContent = data.grahamScanPassed !== null ? (data.grahamScanPassed ? 'Pass' : 'Fail') : 'N/A';
+            UI.grahamValue.className = data.grahamScanPassed ? 'metric-value scan-passed' : 'metric-value scan-failed';
+            UI.fiiValue.textContent = data.fiiPercentage !== null ? formatVal(data.fiiPercentage, 'percent') : 'N/A';
+            drawMeter(data.recommendation);
+            populatePivotTable(data.pivots);
         }
 
         async function fullSearch(ticker) {
             UI.searchBtn.disabled = true; UI.searchBtn.textContent = 'Loading...';
-            UI.aiReportContent.innerHTML = "Generating insights...";
             try {
-                const [marketRes, analysisRes] = await Promise.all([
-                    fetch(`/api/market-data?ticker=${ticker.toUpperCase()}`),
-                    fetch(`/api/analysis-data?ticker=${ticker.toUpperCase()}&price=0`)
-                ]);
-
+                const marketRes = await fetch(`/api/market-data?ticker=${ticker.toUpperCase()}`);
                 const marketData = await marketRes.json();
                 if (!marketRes.ok) throw new Error(marketData.details || 'Market data error');
-                
-                const finalAnalysisRes = await fetch(`/api/analysis-data?ticker=${ticker.toUpperCase()}&price=${marketData.price}`);
-                const analysisData = await finalAnalysisRes.json();
-                
-                updateUI(marketData, analysisData);
+                updateMarketUI(marketData);
 
-                const fullDataObject = { ...marketData, ...analysisData };
-                delete fullDataObject.history;
-                fetch(`/api/ai-analysis`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(fullDataObject)
-                })
-                .then(res => res.text()).then(html => { UI.aiReportContent.innerHTML = html; })
-                .catch(err => { UI.aiReportContent.innerHTML = "Could not generate AI analysis."; });
-
+                const analysisRes = await fetch(`/api/analysis-data?ticker=${ticker.toUpperCase()}&price=${marketData.price}`);
+                if (analysisRes.ok) {
+                    const analysisData = await analysisRes.json();
+                    updateAnalysisUI(analysisData);
+                } else {
+                    console.warn("Could not fetch analysis data.");
+                }
             } catch (error) {
                 alert(`Error: ${error.message}`);
             } finally {
                 UI.searchBtn.disabled = false; UI.searchBtn.textContent = 'Search';
             }
         }
-        
+
         function drawMeter(recommendation) { let v = 2; switch(recommendation) { case "Strong Sell": v = 0; case "Sell": v = 1; case "Neutral": v = 2; case "Buy": v = 3; case "Strong Buy": v = 4; } const d = google.visualization.arrayToDataTable([['Label', 'Value'], [recommendation || 'N/A', v]]); const o = { width: '100%', height: 180, redFrom: 0, redTo: 1.5, yellowFrom: 1.5, yellowTo: 2.5, greenFrom: 2.5, greenTo: 4, minorTicks: 4, min: 0, max: 4 }; new google.visualization.Gauge(UI.meterContainer).draw(d, o); }
 
         function initializeApp() {
             UI.loader.classList.add('hidden');
             UI.dashboard.classList.remove('hidden');
             const ctx = document.getElementById('mainChart').getContext('2d');
-            mainChart = new Chart(ctx, {
-                type: 'candlestick',
-                data: { datasets: [{ data: [] }] },
-                options: { responsive: true, maintainAspectRatio: false, scales: { x: { type: 'time', time: { unit: 'day' } } } }
-            });
+            mainChart = new Chart(ctx, { type: 'candlestick', data: { datasets: [{ data: [] }] }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { type: 'time', time: { unit: 'day' } } } } });
             UI.searchBtn.addEventListener('click', () => fullSearch(UI.tickerInput.value));
             UI.tickerInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') fullSearch(UI.tickerInput.value); });
             fullSearch('RELIANCE');
