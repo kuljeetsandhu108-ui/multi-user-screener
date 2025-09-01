@@ -1,5 +1,5 @@
 // ===================================================================
-// FINAL, VERIFIED AI ANALYST BRAIN with Deep Analysis
+// FINAL, VERIFIED & COMPLETE: /api/ai-analysis.js
 // ===================================================================
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
@@ -20,7 +20,7 @@ module.exports = async (request, response) => {
 
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-        // --- THE NEW "MASTER PROMPT" ---
+        // --- THE "MASTER PROMPT" ---
         const prompt = `
             You are a world-class, unbiased, data-driven stock market analyst. Your name is 'Gemini Analyst'.
             Your task is to generate a comprehensive, multi-part report based ONLY on the provided JSON data for the company ${stockData.name}.
@@ -36,7 +36,7 @@ module.exports = async (request, response) => {
             <h4>Trend Analysis</h4>
             <p>Analyze the relationship between the current price and the 20-day and 50-day EMAs. State if the trend is bullish, bearish, or mixed. Mention if any significant moving average crossovers have occurred.</p>
             <h4>Momentum Analysis</h4>
-            <p>Analyze the RSI, MACD, and Stochastic indicators. State whether momentum appears to be bullish, bearish, oversold, or overbought, and explain why based on the data.</p>
+            <p>Analyze the RSI. State whether momentum appears to be bullish, bearish, oversold, or overbought, and explain why based on the data.</p>
             
             <h3>Fundamental Analysis</h3>
             <h4>Valuation</h4>
