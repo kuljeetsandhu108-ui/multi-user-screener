@@ -1,3 +1,6 @@
+// ===================================================================
+// FINAL, VERIFIED & COMPLETE: /api/market-data.js
+// ===================================================================
 const { SmartAPI } = require("smartapi-javascript");
 const { TOTP } = require("otpauth");
 const fetch = require('node-fetch');

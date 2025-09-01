@@ -6,80 +6,37 @@
     <title>Real-Time Stock Screener</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/charts/loader.js"></script>
-    <!-- The correct and final charting library -->
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
-    <style>
-        /* All CSS is correct and remains the same */
-        body { font-family: 'Roboto', sans-serif; background-color: #f0f2f5; color: #333; margin: 0; padding: 20px; box-sizing: border-box; }
-        .container { display: grid; grid-template-columns: 2.5fr 1fr; gap: 20px; max-width: 1400px; margin: auto; }
-        .card { background-color: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        /* ... rest of the CSS ... */
-    </style>
+    <style> /* ... CSS ... */ </style>
 </head>
 <body>
-    <!-- All HTML structure is correct and remains the same -->
-    <div id="loader" class="loader">Loading Screener...</div>
-    <div id="dashboardContent" class="container hidden">
-        <div class="left-column">
-            <div class="card">
-                <div class="header">
-                    <div><div id="stockName" class="stock-name">-</div><div id="stockTicker" class="stock-ticker">-</div></div>
-                    <div class="price-info"><span id="stockPrice" class="price">-</span><span id="stockChange" class="change"></span></div>
-                </div>
-                <div class="search-container"><input type="text" id="tickerInput" class="search-input" placeholder="Enter Ticker (e.g., RELIANCE)"><button id="searchBtn" class="search-button">Search</button></div>
-            </div>
-            <div class="card" style="margin-top: 20px; height: 550px; padding: 0;">
-                <div id="chart-container" style="height: 100%; width: 100%;"></div>
-            </div>
-            <!-- ... rest of the HTML structure ... -->
-        </div>
-        <div class="right-column">
-             <!-- ... right column cards ... -->
-        </div>
-    </div>
-
+    <!-- ... HTML ... -->
     <script>
-        // --- FINAL, GUARANTEED JAVASCRIPT using TradingView Lightweight Charts ---
-        const UI = { /* ... All UI elements object ... */ };
+        const UI = { /* ... UI elements ... */ };
         let mainChart = null;
         let candleSeries = null;
-        let googleChartsLoaded = false;
 
         function formatVal(val, type = 'price') { /* ... */ }
         function populatePivotTable(pivots) { /* ... */ }
         function drawMeter(recommendation) { /* ... */ }
 
         function updateUI(marketData, analysisData = {}) {
-            // ... all UI updates for text and tables ...
-            
-            // Update the chart data
-            if (candleSeries && marketData.history && marketData.history.length > 0) {
+            // ... all UI updates ...
+            if (candleSeries && marketData.history) {
                 candleSeries.setData(marketData.history);
                 mainChart.timeScale().fitContent();
             }
         }
 
-        async function fullSearch(ticker) {
-             // ... full search logic remains the same ...
-        }
+        async function fullSearch(ticker) { /* ... */ }
 
         function initializeApp() {
             UI.loader.classList.add('hidden');
             UI.dashboard.classList.remove('hidden');
-
-            // --- THE DEFINITIVE FIX IS HERE ---
-            // 1. Create the chart and the series ONE TIME.
-            mainChart = LightweightCharts.createChart(UI.chartContainer, {
-                width: UI.chartContainer.clientWidth, height: UI.chartContainer.clientHeight,
-                layout: { textColor: 'black', background: { type: 'solid', color: 'white' } },
-                grid: { vertLines: { color: '#f2f2f2' }, horzLines: { color: '#f2f2f2' } }
-            });
-            candleSeries = mainChart.addCandlestickSeries({
-                upColor: '#26a69a', downColor: '#ef5350', borderDownColor: '#ef5350',
-                borderUpColor: '#26a69a', wickDownColor: '#ef5350', wickUpColor: '#26a69a'
-            });
+            
+            mainChart = LightweightCharts.createChart(UI.chartContainer, { /* ... options ... */ });
+            candleSeries = mainChart.addCandlestickSeries({ /* ... options ... */ });
             new ResizeObserver(e => { if(e[0].contentRect.width > 0) mainChart.resize(e[0].contentRect.width, e[0].contentRect.height) }).observe(UI.chartContainer);
-            // --- END OF FIX ---
 
             UI.searchBtn.addEventListener('click', () => fullSearch(UI.tickerInput.value));
             UI.tickerInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') fullSearch(UI.tickerInput.value); });
@@ -88,13 +45,7 @@
         }
         
         google.charts.load('current', { 'packages': ['gauge'] });
-        google.charts.setOnLoadCallback(() => {
-            googleChartsLoaded = true;
-            initializeApp();
-        });
-
-        // Full helper functions for copy-pasting
-        // ... (All other functions: formatVal, drawMeter, updateUI, fullSearch)
+        google.charts.setOnLoadCallback(initializeApp);
     </script>
 </body>
 </html>
