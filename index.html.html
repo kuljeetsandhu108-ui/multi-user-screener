@@ -37,7 +37,8 @@
         .pivot-table th:first-child, .pivot-table td:first-child { text-align: left; font-weight: 700; }
         .pivot-table td:nth-child(5) { background-color: #f8f9fa; font-weight: 700; }
         #meter_div { width: 100%; height: 180px; }
-        .ai-report h4 { margin-top: 0; }
+        .ai-report h3 { margin-top: 15px; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .ai-report h4 { margin-top: 15px; margin-bottom: 5px; }
         .ai-report ul { padding-left: 20px; margin: 10px 0 0 0; }
         .ai-report li { margin-bottom: 8px; }
         .scan-passed { color: #2e7d32; font-weight: 700; }
@@ -60,7 +61,6 @@
                 <h4>Pivot Levels</h4><table id="pivotTable" class="pivot-table"></table>
             </div>
             <div class="card ai-report" style="margin-top: 20px;">
-                <h4>AI Analyst Report</h4>
                 <div id="aiReportContent">Generating insights...</div>
             </div>
         </div>
@@ -110,14 +110,17 @@
             UI.openValue.textContent = formatVal(marketData.open); UI.highValue.textContent = formatVal(marketData.high);
             UI.lowValue.textContent = formatVal(marketData.low); UI.closeValue.textContent = formatVal(marketData.close);
             UI.volumeValue.textContent = formatVal(marketData.volume, 'volume');
-            const chartData = marketData.history.map(d => ({ x: new Date(d.time).getTime(), o: d.open, h: d.high, l: d.low, c: d.close }));
-            mainChart.data.datasets[0].data = chartData; mainChart.update();
             
+            const chartData = marketData.history.map(d => ({ x: new Date(d.time).getTime(), o: d.open, h: d.high, l: d.low, c: d.close }));
+            mainChart.data.datasets[0].data = chartData;
+            mainChart.update();
+            mainChart.resetZoom();
+
             if (analysisData.recommendation) {
                 UI.indicatorDiv.innerHTML = `<div class="metrics-grid">
                     <div class="metric"><span class="metric-label">RSI (14)</span><span>${formatVal(analysisData.rsi)}</span></div>
-                    <div class="metric"><span class="metric-label">EMA (20)</span><span>${formatVal(analysisData.ema20)}</span></div>
-                    <div class="metric"><span class="metric-label">EMA (50)</span><span>${formatVal(analysisData.ema50)}</span></div>
+                    <div class="metric"><span class="metric-label">EMA (20)</span><span>${formatVal(analysisData.ema20, 'price')}</span></div>
+                    <div class="metric"><span class="metric-label">EMA (50)</span><span>${formatVal(analysisData.ema50, 'price')}</span></div>
                 </div>`;
                 UI.fundamentalDiv.innerHTML = `<div class="metrics-grid" style="grid-template-columns: 1fr;">
                     <div class="metric"><span class="metric-label">Piotroski F-Score</span><span>${analysisData.piotroskiFScore !== null ? `${analysisData.piotroskiFScore} / 9` : 'N/A'}</span></div>
@@ -131,30 +134,31 @@
 
         async function fullSearch(ticker) {
             UI.searchBtn.disabled = true; UI.searchBtn.textContent = 'Loading...';
-            UI.aiReportContent.innerHTML = "Generating insights..."; // Reset AI content
+            UI.aiReportContent.innerHTML = "Generating insights...";
             try {
-                const marketRes = await fetch(`/api/market-data?ticker=${ticker.toUpperCase()}`);
+                const [marketRes, analysisRes] = await Promise.all([
+                    fetch(`/api/market-data?ticker=${ticker.toUpperCase()}`),
+                    fetch(`/api/analysis-data?ticker=${ticker.toUpperCase()}&price=0`) // Price is placeholder, will be updated
+                ]);
+
                 const marketData = await marketRes.json();
                 if (!marketRes.ok) throw new Error(marketData.details || 'Market data error');
-                updateUI(marketData, {});
+                
+                // Update the price in the analysis call URL and fetch again if needed, or pass it
+                const analysisData = await (await fetch(`/api/analysis-data?ticker=${ticker.toUpperCase()}&price=${marketData.price}`)).json();
 
-                const analysisRes = await fetch(`/api/analysis-data?ticker=${ticker.toUpperCase()}&price=${marketData.price}`);
-                if (analysisRes.ok) {
-                    const analysisData = await analysisRes.json();
-                    updateUI(marketData, analysisData);
-                    
-                    const fullDataObject = { ...marketData, ...analysisData };
-                    delete fullDataObject.history; // Don't send the long history array to the AI
-                    fetch(`/api/ai-analysis`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(fullDataObject)
-                    })
-                    .then(res => res.text()).then(html => { UI.aiReportContent.innerHTML = html; })
-                    .catch(err => { UI.aiReportContent.innerHTML = "Could not generate AI analysis."; });
-                } else {
-                    console.warn("Could not fetch analysis data.");
-                }
+                updateUI(marketData, analysisData);
+
+                const fullDataObject = { ...marketData, ...analysisData };
+                delete fullDataObject.history;
+                fetch(`/api/ai-analysis`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(fullDataObject)
+                })
+                .then(res => res.text()).then(html => { UI.aiReportContent.innerHTML = html; })
+                .catch(err => { UI.aiReportContent.innerHTML = "Could not generate AI analysis."; });
+
             } catch (error) {
                 alert(`Error: ${error.message}`);
             } finally {
