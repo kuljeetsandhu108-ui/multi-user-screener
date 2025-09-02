@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale-1.0">
     <title>Real-Time Stock Screener</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/charts/loader.js"></script>
@@ -114,9 +114,10 @@
             
             const chartData = marketData.history.map(d => ({ x: new Date(d.time).getTime(), o: d.open, h: d.high, l: d.low, c: d.close }));
             mainChart.data.datasets[0].data = chartData;
-            mainChart.update(); // The update() call is all that's needed to redraw the chart with new data.
+            mainChart.update();
+            mainChart.resetZoom();
 
-            if (analysisData.recommendation) {
+            if (analysisData.recommendation !== undefined) {
                 UI.indicatorDiv.innerHTML = `<div class="metric"><span class="metric-label">RSI (14)</span><span>${formatVal(analysisData.rsi)}</span></div>
                                            <div class="metric"><span class="metric-label">EMA (20)</span><span>${formatVal(analysisData.ema20, 'price')}</span></div>
                                            <div class="metric"><span class="metric-label">EMA (50)</span><span>${formatVal(analysisData.ema50, 'price')}</span></div>`;
@@ -125,6 +126,11 @@
                                             <div class="metric"><span class="metric-label">FII Shareholding</span><span>${formatVal(analysisData.fiiPercentage, 'percent')}</span></div>`;
                 drawMeter(analysisData.recommendation);
                 populatePivotTable(analysisData.pivots);
+            } else {
+                // Clear analysis fields if analysis data is not available
+                UI.indicatorDiv.innerHTML = `N/A`;
+                UI.fundamentalDiv.innerHTML = `N/A`;
+                UI.pivotTable.innerHTML = "";
             }
         }
 
@@ -136,19 +142,24 @@
                 const marketData = await marketRes.json();
                 if (!marketRes.ok) throw new Error(marketData.details || 'Market data error');
                 
+                updateUI(marketData, {}); // Update with market data first, passing an empty object for analysis
+
                 const analysisRes = await fetch(`/api/analysis-data?ticker=${ticker.toUpperCase()}&price=${marketData.price}`);
-                const analysisData = await analysisRes.json();
                 
-                updateUI(marketData, analysisData); // Update all UI with both data sets
-
-                const fullDataObject = { ...marketData, ...analysisData };
-                delete fullDataObject.history;
-                fetch(`/api/ai-analysis`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fullDataObject)
-                })
-                .then(res => res.text()).then(html => { UI.aiReportContent.innerHTML = html; })
-                .catch(err => { UI.aiReportContent.innerHTML = "Could not generate AI analysis."; });
-
+                if (analysisRes.ok) {
+                    const analysisData = await analysisRes.json();
+                    updateUI(marketData, analysisData); // Update again with the full analysis data
+                    
+                    const fullDataObject = { ...marketData, ...analysisData };
+                    delete fullDataObject.history;
+                    fetch(`/api/ai-analysis`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fullDataObject)
+                    })
+                    .then(res => res.text()).then(html => { UI.aiReportContent.innerHTML = html; })
+                    .catch(err => { UI.aiReportContent.innerHTML = "Could not generate AI analysis."; });
+                } else {
+                    console.warn("Could not fetch analysis data. The API might have failed.");
+                }
             } catch (error) {
                 alert(`Error: ${error.message}`);
             } finally {
