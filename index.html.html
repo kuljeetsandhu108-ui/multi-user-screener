@@ -114,8 +114,8 @@
             
             const chartData = marketData.history.map(d => ({ x: new Date(d.time).getTime(), o: d.open, h: d.high, l: d.low, c: d.close }));
             mainChart.data.datasets[0].data = chartData;
-            mainChart.update();
-            mainChart.resetZoom();
+            // THE FIX IS HERE: The incorrect mainChart.resetZoom() line has been removed.
+            mainChart.update(); 
 
             if (analysisData.recommendation !== undefined) {
                 UI.indicatorDiv.innerHTML = `<div class="metric"><span class="metric-label">RSI (14)</span><span>${formatVal(analysisData.rsi)}</span></div>
@@ -137,13 +137,12 @@
                 const marketData = await marketRes.json();
                 if (!marketRes.ok) throw new Error(marketData.details || 'Market data error');
                 
-                updateUI(marketData, {}); // Update with market data first, passing an empty object for analysis
+                updateUI(marketData, {});
 
                 const analysisRes = await fetch(`/api/analysis-data?ticker=${ticker.toUpperCase()}&price=${marketData.price}`);
-                
                 if (analysisRes.ok) {
                     const analysisData = await analysisRes.json();
-                    updateUI(marketData, analysisData); // Update again with the full analysis data
+                    updateUI(marketData, analysisData);
                     
                     const fullDataObject = { ...marketData, ...analysisData };
                     delete fullDataObject.history;
@@ -152,8 +151,6 @@
                     })
                     .then(res => res.text()).then(html => { UI.aiReportContent.innerHTML = html; })
                     .catch(err => { UI.aiReportContent.innerHTML = "Could not generate AI analysis."; });
-                } else {
-                    console.warn("Could not fetch analysis data. The API might have failed.");
                 }
             } catch (error) {
                 alert(`Error: ${error.message}`);
