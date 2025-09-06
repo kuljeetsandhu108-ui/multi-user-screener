@@ -13,6 +13,7 @@
     "@google/generative-ai": "^0.24.1",
     "axios": "^1.11.0",
     "dotenv": "^17.2.1",
+    "kiteconnect": "^5.1.0",
     "node-fetch": "^2.7.0",
     "otpauth": "^9.4.1",
     "smartapi-javascript": "^1.0.27",

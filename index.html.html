@@ -6,80 +6,173 @@
     <title>Real-Time Stock Screener</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/charts/loader.js"></script>
-    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial"></script>
     <style>
-        /* All CSS is correct and remains the same */
+        body { font-family: 'Roboto', sans-serif; background-color: #f0f2f5; color: #333; margin: 0; padding: 20px; box-sizing: border-box; }
+        .container { display: grid; grid-template-columns: 2.5fr 1fr; gap: 20px; max-width: 1400px; margin: auto; }
+        .card { background-color: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 15px; }
+        .stock-name { font-size: 28px; font-weight: 700; }
+        .stock-ticker { font-size: 16px; color: #666; }
+        .price-info { text-align: right; }
+        .price { font-size: 36px; font-weight: 500; }
+        .change { font-size: 18px; font-weight: 500; margin-left: 10px; }
+        .positive { color: #26a69a; }
+        .negative { color: #ef5350; }
+        .search-container { width: 100%; margin-top: 20px; display: flex; gap: 10px; }
+        .search-input { width: 100%; padding: 12px 15px; font-size: 16px; border: 1px solid #ddd; border-radius: 6px; outline: none; }
+        .search-button { padding: 12px 25px; font-size: 16px; font-weight: 500; background-color: #4285F4; color: white; border: none; border-radius: 6px; cursor: pointer; }
+        .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 20px; }
+        .metric { display: flex; justify-content: space-between; align-items: center; font-size: 15px; }
+        .metric-label { color: #666; }
+        .metric-value { font-weight: 500; }
+        .loader { text-align: center; padding: 100px; font-size: 20px; font-weight: 500; color: #666; }
+        .hidden { display: none; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
+        th, td { text-align: left; padding: 8px; border-bottom: 1px solid #f0f0f0; }
+        th { color: #666; font-weight: 500; }
+        .pivot-table td, .pivot-table th { text-align: center; }
+        .pivot-table th:first-child, .pivot-table td:first-child { text-align: left; font-weight: 700; }
+        .pivot-table td:nth-child(5) { background-color: #f8f9fa; font-weight: 700; }
+        #meter_div { width: 100%; height: 180px; }
+        .ai-report h3 { margin-top: 15px; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .ai-report h4 { margin-top: 15px; margin-bottom: 5px; }
+        .ai-report ul { padding-left: 20px; margin: 10px 0 0 0; }
+        .ai-report li { margin-bottom: 8px; }
+        .scan-passed { color: #2e7d32; font-weight: 700; }
+        .scan-failed { color: #c62828; font-weight: 700; }
     </style>
 </head>
 <body>
-    <!-- All HTML structure is correct and remains the same -->
-    
+    <div id="loader" class="loader">Loading Screener...</div>
+    <div id="dashboardContent" class="container hidden">
+        <div class="left-column">
+            <div class="card">
+                <div class="header">
+                    <div><div id="stockName" class="stock-name">-</div><div id="stockTicker" class="stock-ticker">-</div></div>
+                    <div class="price-info"><span id="stockPrice" class="price">-</span><span id="stockChange" class="change"></span></div>
+                </div>
+                <div class="search-container"><input type="text" id="tickerInput" class="search-input" placeholder="Enter Ticker (e.g., RELIANCE)"><button id="searchBtn" class="search-button">Search</button></div>
+            </div>
+            <div class="card" style="margin-top: 20px; height: 550px;"><canvas id="mainChart"></canvas></div>
+            <div class="card" style="margin-top: 20px;">
+                <h4>Pivot Levels</h4><table id="pivotTable" class="pivot-table"></table>
+            </div>
+            <div class="card ai-report" style="margin-top: 20px;">
+                <h4>AI Analyst Report</h4>
+                <div id="aiReportContent">Generating insights...</div>
+            </div>
+        </div>
+        <div class="right-column">
+            <div class="card"><h4>Technical Summary</h4><div id="meter_div"></div></div>
+            <div class="card" style="margin-top: 20px;">
+                <h4>Key Metrics</h4>
+                <div class="metrics-grid">
+                    <div class="metric"><span class="metric-label">Open</span><span id="openValue">-</span></div>
+                    <div class="metric"><span class="metric-label">High</span><span id="highValue">-</span></div>
+                    <div class="metric"><span class="metric-label">Low</span><span id="lowValue">-</span></div>
+                    <div class="metric"><span class="metric-label">Prev. Close</span><span id="closeValue">-</span></div>
+                    <div class="metric"><span class="metric-label">Volume</span><span id="volumeValue">-</span></div>
+                </div>
+            </div>
+            <div class="card" style="margin-top: 20px;"><h4>Technical Indicators</h4><div id="indicatorDiv" class="metrics-grid"></div></div>
+            <div class="card" style="margin-top: 20px;"><h4>Fundamental Scans</h4><div id="fundamentalDiv" class="metrics-grid" style="grid-template-columns: 1fr;"></div></div>
+        </div>
+    </div>
     <script>
-        // --- FINAL, GUARANTEED JAVASCRIPT ---
-        const UI = { /* All UI elements */ };
+        const UI = {
+            loader: document.getElementById('loader'), dashboard: document.getElementById('dashboardContent'),
+            stockName: document.getElementById('stockName'), stockTicker: document.getElementById('stockTicker'),
+            stockPrice: document.getElementById('stockPrice'), stockChange: document.getElementById('stockChange'),
+            openValue: document.getElementById('openValue'), highValue: document.getElementById('highValue'),
+            lowValue: document.getElementById('lowValue'), closeValue: document.getElementById('closeValue'),
+            volumeValue: document.getElementById('volumeValue'), searchBtn: document.getElementById('searchBtn'),
+            tickerInput: document.getElementById('tickerInput'), pivotTable: document.getElementById('pivotTable'),
+            indicatorDiv: document.getElementById('indicatorDiv'), fundamentalDiv: document.getElementById('fundamentalDiv'),
+            meterContainer: document.getElementById('meter_div'), aiReportContent: document.getElementById('aiReportContent')
+        };
         let mainChart = null;
-        let candleSeries = null;
 
-        function formatVal(val, type = 'price') { /* ... same as before ... */ }
-        function populatePivotTable(pivots) { /* ... same as before ... */ }
-        function drawMeter(recommendation) { /* ... same as before ... */ }
+        function formatVal(val, type = 'price') { if (val === null || val === undefined) return 'N/A'; if (type === 'price') return `₹${Number(val).toFixed(2)}`; if (type === 'percent') return `${Number(val).toFixed(2)}%`; if (type === 'number') return Number(val).toFixed(2); if (type === 'volume') { if (val >= 10000000) return `${(val / 10000000).toFixed(2)} Cr`; return `${(val / 100000).toFixed(2)} Lac`; } return val; }
 
-        function updateUI(marketData, analysisData = {}) {
-            // ... all UI updates ...
-            if (candleSeries && marketData.history) {
-                candleSeries.setData(marketData.history);
-                mainChart.timeScale().fitContent();
+        function populatePivotTable(pivots) {
+            const table = UI.pivotTable; table.innerHTML = `<tr><th>Type</th><th>R3</th><th>R2</th><th>R1</th><th>PP</th><th>S1</th><th>S2</th><th>S3</th></tr>`;
+            if (!pivots) return;
+            const createRow = (name, p) => { if (!p) return; table.insertRow().innerHTML = `<td>${name}</td><td>${formatVal(p.r3)}</td><td>${formatVal(p.r2)}</td><td>${formatVal(p.r1)}</td><td><b>${formatVal(p.pp)}</b></td><td>${formatVal(p.s1)}</td><td>${formatVal(p.s2)}</td><td>${formatVal(p.s3)}</td>`; };
+            createRow('Classic', pivots.classic); createRow('Fibonacci', pivots.fibonacci); createRow('Camarilla', pivots.camarilla);
+        }
+
+        function updateUI(marketData, analysisData) {
+            UI.stockName.textContent = marketData.name; UI.stockTicker.textContent = marketData.ticker;
+            UI.stockPrice.textContent = `₹${formatVal(marketData.price)}`; UI.stockChange.textContent = `${formatVal(marketData.change)} (${formatVal(marketData.changePct, 'percent')})`;
+            UI.stockChange.className = marketData.change >= 0 ? 'change positive' : 'change negative';
+            UI.openValue.textContent = formatVal(marketData.open); UI.highValue.textContent = formatVal(marketData.high);
+            UI.lowValue.textContent = formatVal(marketData.low); UI.closeValue.textContent = formatVal(marketData.close);
+            UI.volumeValue.textContent = formatVal(marketData.volume, 'volume');
+            
+            const chartData = marketData.history.map(d => ({ x: new Date(d.time).getTime(), o: d.open, h: d.high, l: d.low, c: d.close }));
+            mainChart.data.datasets[0].data = chartData;
+            mainChart.update();
+            mainChart.resetZoom();
+
+            if (analysisData.recommendation !== undefined) {
+                UI.indicatorDiv.innerHTML = `<div class="metric"><span class="metric-label">RSI (14)</span><span>${formatVal(analysisData.rsi)}</span></div>
+                                           <div class="metric"><span class="metric-label">EMA (20)</span><span>${formatVal(analysisData.ema20, 'price')}</span></div>
+                                           <div class="metric"><span class="metric-label">EMA (50)</span><span>${formatVal(analysisData.ema50, 'price')}</span></div>`;
+                UI.fundamentalDiv.innerHTML = `<div class="metric"><span class="metric-label">Piotroski F-Score</span><span>${analysisData.piotroskiFScore !== null ? `${analysisData.piotroskiFScore} / 9` : 'N/A'}</span></div>
+                                            <div class="metric"><span class="metric-label">Graham Scan</span><span class="${analysisData.grahamScanPassed ? 'scan-passed' : 'scan-failed'}">${analysisData.grahamScanPassed !== null ? (analysisData.grahamScanPassed ? 'Pass' : 'Fail') : 'N/A'}</span></div>
+                                            <div class="metric"><span class="metric-label">FII Shareholding</span><span>${formatVal(analysisData.fiiPercentage, 'percent')}</span></div>`;
+                drawMeter(analysisData.recommendation);
+                populatePivotTable(analysisData.pivots);
             }
         }
 
         async function fullSearch(ticker) {
-            UI.searchBtn.disabled = true;
-            UI.searchBtn.textContent = 'Loading...';
+            UI.searchBtn.disabled = true; UI.searchBtn.textContent = 'Loading...';
             UI.aiReportContent.innerHTML = "Generating insights...";
             try {
-                const marketRes = await fetch(`/api/market-data?ticker=${ticker.toUpperCase()}`);
+                const [marketRes, analysisRes] = await Promise.all([
+                    fetch(`/api/market-data?ticker=${ticker.toUpperCase()}`),
+                    fetch(`/api/analysis-data?ticker=${ticker.toUpperCase()}&price=0`) // Price is placeholder
+                ]);
+
                 const marketData = await marketRes.json();
                 if (!marketRes.ok) throw new Error(marketData.details || 'Market data error');
-                updateUI(marketData, {}); // Initial update
+                
+                const finalAnalysisRes = await fetch(`/api/analysis-data?ticker=${ticker.toUpperCase()}&price=${marketData.price}`);
+                const analysisData = await finalAnalysisRes.json();
+                
+                updateUI(marketData, analysisData);
 
-                const analysisRes = await fetch(`/api/analysis-data?ticker=${ticker.toUpperCase()}&price=${marketData.price}`);
-                if (analysisRes.ok) {
-                    const analysisData = await analysisRes.json();
-                    updateUI(marketData, analysisData); // Final update
-                    
-                    const fullDataObject = { ...marketData, ...analysisData };
-                    delete fullDataObject.history;
-                    fetch(`/api/ai-analysis`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(fullDataObject)
-                    })
-                    .then(res => res.text()).then(html => { UI.aiReportContent.innerHTML = html; })
-                    .catch(err => { UI.aiReportContent.innerHTML = "Could not generate AI analysis."; });
-                }
+                const fullDataObject = { ...marketData, ...analysisData };
+                delete fullDataObject.history;
+                fetch(`/api/ai-analysis`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fullDataObject)
+                })
+                .then(res => res.text()).then(html => { UI.aiReportContent.innerHTML = html; })
+                .catch(err => { UI.aiReportContent.innerHTML = "Could not generate AI analysis."; });
+
             } catch (error) {
                 alert(`Error: ${error.message}`);
             } finally {
-                UI.searchBtn.disabled = false;
-                UI.searchBtn.textContent = 'Search';
+                UI.searchBtn.disabled = false; UI.searchBtn.textContent = 'Search';
             }
         }
+        
+        function drawMeter(recommendation) { let v = 2; switch(recommendation) { case "Strong Sell": v = 0; case "Sell": v = 1; case "Neutral": v = 2; case "Buy": v = 3; case "Strong Buy": v = 4; } const d = google.visualization.arrayToDataTable([['Label', 'Value'], [recommendation || 'N/A', v]]); const o = { width: '100%', height: 180, redFrom: 0, redTo: 1.5, yellowFrom: 1.5, yellowTo: 2.5, greenFrom: 2.5, greenTo: 4, minorTicks: 4, min: 0, max: 4 }; new google.visualization.Gauge(UI.meterContainer).draw(d, o); }
 
         function initializeApp() {
             UI.loader.classList.add('hidden');
             UI.dashboard.classList.remove('hidden');
-            
-            mainChart = LightweightCharts.createChart(UI.chartContainer, { /* ... options ... */ });
-            candleSeries = mainChart.addCandlestickSeries({ /* ... options ... */ });
-            new ResizeObserver(e => { if(e[0].contentRect.width > 0) mainChart.resize(e[0].contentRect.width, e[0].contentRect.height) }).observe(UI.chartContainer);
-
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            mainChart = new Chart(ctx, { type: 'candlestick', data: { datasets: [{ data: [] }] }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { type: 'time', time: { unit: 'day' } } } } });
             UI.searchBtn.addEventListener('click', () => fullSearch(UI.tickerInput.value));
             UI.tickerInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') fullSearch(UI.tickerInput.value); });
-            
             fullSearch('RELIANCE');
         }
         
-        // Load libraries first, then initialize
         google.charts.load('current', { 'packages': ['gauge'] });
         google.charts.setOnLoadCallback(initializeApp);
     </script>

@@ -3,28 +3,29 @@
 // ===================================================================
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-// Access your API key as an environment variable
+// Access your API key as an environment variable from Vercel
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 module.exports = async (request, response) => {
-    // We must use POST to send a large amount of data
+    // This function must only accept POST requests because the data object is large
     if (request.method !== 'POST') {
         return response.status(405).json({ error: "Method Not Allowed" });
     }
 
     try {
+        // Get the full data object sent from the frontend
         const stockData = request.body;
         if (!stockData || !stockData.name) {
-            throw new Error("Stock data is missing from the request body.");
+            throw new Error("Complete stock data is required to generate analysis.");
         }
 
-        // Initialize the Generative Model
+        // Initialize the Generative Model, specifically Gemini 1.5 Flash
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-        // --- THE MASTER PROMPT for Comprehensive Analysis ---
+        // --- This is the "Master Prompt" that instructs the AI ---
         const prompt = `
-            You are an expert, data-driven stock market analyst named 'Gemini Analyst'.
-            Your task is to generate a comprehensive, multi-part report based ONLY on the provided JSON data for the company: ${stockData.name}.
+            You are a world-class, unbiased, data-driven stock market analyst. Your name is 'Gemini Analyst'.
+            Your task is to generate a comprehensive, multi-part report based ONLY on the provided JSON data for the company ${stockData.name}.
             Do NOT use any external knowledge. Do NOT give financial advice or price targets.
             Your entire response must be formatted in clean, professional HTML.
 
@@ -66,10 +67,12 @@ module.exports = async (request, response) => {
         const aiResponse = await result.response;
         const analysisText = aiResponse.text();
 
-        // Clean up markdown in case the model adds it
+        // Clean up markdown code fences in case the model adds them
         const cleanHtml = analysisText.replace(/```html/g, '').replace(/```/g, '');
 
+        // Set the response header to indicate we are sending back HTML content
         response.setHeader('Content-Type', 'text/html');
+        // Send the clean HTML as the response
         return response.status(200).send(cleanHtml);
 
     } catch (error) {
