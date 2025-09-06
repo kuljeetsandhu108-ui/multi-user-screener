@@ -133,27 +133,28 @@
             UI.searchBtn.disabled = true; UI.searchBtn.textContent = 'Loading...';
             UI.aiReportContent.innerHTML = "Generating insights...";
             try {
-                const [marketRes, analysisRes] = await Promise.all([
-                    fetch(`/api/market-data?ticker=${ticker.toUpperCase()}`),
-                    fetch(`/api/analysis-data?ticker=${ticker.toUpperCase()}&price=0`) // Price is placeholder
-                ]);
-
+                const marketRes = await fetch(`/api/market-data?ticker=${ticker.toUpperCase()}`);
                 const marketData = await marketRes.json();
                 if (!marketRes.ok) throw new Error(marketData.details || 'Market data error');
                 
-                const finalAnalysisRes = await fetch(`/api/analysis-data?ticker=${ticker.toUpperCase()}&price=${marketData.price}`);
-                const analysisData = await finalAnalysisRes.json();
+                updateUI(marketData, {}); // Update with market data first, passing an empty object for analysis
+
+                const analysisRes = await fetch(`/api/analysis-data?ticker=${ticker.toUpperCase()}&price=${marketData.price}`);
                 
-                updateUI(marketData, analysisData);
-
-                const fullDataObject = { ...marketData, ...analysisData };
-                delete fullDataObject.history;
-                fetch(`/api/ai-analysis`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fullDataObject)
-                })
-                .then(res => res.text()).then(html => { UI.aiReportContent.innerHTML = html; })
-                .catch(err => { UI.aiReportContent.innerHTML = "Could not generate AI analysis."; });
-
+                if (analysisRes.ok) {
+                    const analysisData = await analysisRes.json();
+                    updateUI(marketData, analysisData); // Update again with the full analysis data
+                    
+                    const fullDataObject = { ...marketData, ...analysisData };
+                    delete fullDataObject.history;
+                    fetch(`/api/ai-analysis`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fullDataObject)
+                    })
+                    .then(res => res.text()).then(html => { UI.aiReportContent.innerHTML = html; })
+                    .catch(err => { UI.aiReportContent.innerHTML = "Could not generate AI analysis."; });
+                } else {
+                    console.warn("Could not fetch analysis data. The API might have failed.");
+                }
             } catch (error) {
                 alert(`Error: ${error.message}`);
             } finally {

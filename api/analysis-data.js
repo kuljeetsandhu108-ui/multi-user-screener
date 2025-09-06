@@ -8,7 +8,6 @@ const indicator = require('technicalindicators');
 
 let instrumentCache = null;
 
-// --- All helper functions are defined first for stability ---
 const getTodayDateStr = () => { const d = new Date(); const offset = d.getTimezoneOffset() * 60000; const istOffset = 330 * 60000; const istTime = new Date(d.getTime() + offset + istOffset); return `${istTime.getFullYear()}-${String(istTime.getMonth() + 1).padStart(2, '0')}-${String(istTime.getDate()).padStart(2, '0')} 15:30`; };
 const getPastDateStr = (daysAgo) => { const d = new Date(); d.setDate(d.getDate() - daysAgo); const offset = d.getTimezoneOffset() * 60000; const istOffset = 330 * 60000; const istTime = new Date(d.getTime() + offset + istOffset); return `${istTime.getFullYear()}-${String(istTime.getMonth() + 1).padStart(2, '0')}-${String(istTime.getDate()).padStart(2, '0')} 09:15`; };
 const calculateEMA = (closePrices, period) => { if (!closePrices || closePrices.length < period) return null; const k = 2 / (period + 1); let ema = closePrices.slice(0, period).reduce((s, v) => s + v, 0) / period; for (let i = period; i < closePrices.length; i++) { ema = (closePrices[i] * k) + (ema * (1 - k)); } return ema; };
